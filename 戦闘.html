@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>戦闘</title>
+<link rel="stylesheet" href="css/battle.css">
+<link rel="stylesheet" href="css/frame.css">
+<style>
+.prep{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:22px 20px 40px;display:grid;gap:18px;color:#ece4d0;font-family:"Yu Gothic","YuGothic","Hiragino Sans",sans-serif}
+.prep .frame,.prep .frame>.in,dialog .frame,dialog .frame>.in{clip-path:polygon(var(--c,14px) 0,calc(100% - var(--c,14px)) 0,100% var(--c,14px),100% calc(100% - var(--c,14px)),calc(100% - var(--c,14px)) 100%,var(--c,14px) 100%,0 calc(100% - var(--c,14px)),0 var(--c,14px))}
+.prep .frame,dialog .frame{--c:14px;background:linear-gradient(160deg,#d6a847,#8a6a25);padding:2px;border:0;color:inherit}
+.prep .frame>.in,dialog .frame>.in{background:#0d0b09;width:100%;height:100%}
+.prep .top{display:flex;align-items:center;gap:12px}
+.prep .hintline{margin-left:auto;color:#a29a82;font-size:.9rem;text-shadow:0 1px 6px #000}
+.prep .sq{--c:8px;width:48px;height:40px;cursor:pointer;text-decoration:none}
+.prep .sq .in{display:grid;place-items:center;font-size:1.25rem;font-weight:900;color:#d6a847}
+.prep .sq:hover .in{background:#2a200e}
+.prep .title{--c:12px;min-width:190px}
+.prep .title .in{padding:9px 26px;font-weight:900;font-size:1.1rem;letter-spacing:.14em;text-align:center}
+.prep .duel{display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:12px;align-items:center}
+.prep .side{--c:18px}
+.prep .side>.in{padding:16px}
+.prep .side.foe{background:linear-gradient(160deg,#e8737a,#7a2a30)}
+.prep .side h2{margin:0 0 12px;font-size:1.05rem;font-weight:900;letter-spacing:.12em;display:flex;justify-content:space-between;align-items:baseline}
+.prep .side h2 span{font-size:.78rem;font-weight:500;color:#a29a82;letter-spacing:.04em}
+.prep .side.me h2{color:#d6a847}
+.prep .side.foe h2{color:#f08c92}
+.prep .pres{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.prep .pre{--c:8px;height:46px;cursor:pointer;background:linear-gradient(160deg,#6a5120,#3a2c0f);padding:2px;border:0;color:#ece4d0;font:inherit}
+.prep .pre,.prep .pre>.in{clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.prep .pre>.in{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;background:#14110c;font-weight:800;font-size:.8rem;letter-spacing:.04em;line-height:1.25}
+.prep .pre small{font-weight:500;font-size:.64rem;color:#a29a82}
+.prep .pre[aria-pressed="true"]{background:#f1cd7a}
+.prep .pre[aria-pressed="true"]>.in{background:linear-gradient(90deg,#8a6420,#d6a847);color:#17110a}
+.prep .pre[aria-pressed="true"] small{color:#3a2a0a}
+.prep .foe .pre[aria-pressed="true"]{background:#f3a0a5}
+.prep .foe .pre[aria-pressed="true"]>.in{background:linear-gradient(90deg,#7a2a30,#e0505a);color:#fff}
+.prep .foe .pre[aria-pressed="true"] small{color:#ffd9db}
+.prep .pre:disabled{cursor:not-allowed;opacity:.45}
+.prep .mini{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.prep .m{--c:8px;aspect-ratio:2/3.3;position:relative}
+.prep .m>.in{position:relative;overflow:hidden;background:#0b0907}
+.prep .m img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.prep .m.empty{background:linear-gradient(160deg,#4a3a16,#2c200b)}
+.prep .m.empty .in{display:grid;place-items:center;color:#5a4a22;font-size:1.3rem}
+.prep .pl{position:absolute;left:0;right:0;bottom:0;padding:18px 3px 5px;text-align:center;background:linear-gradient(0deg,rgba(0,0,0,.92) 35%,rgba(0,0,0,0))}
+.prep .pl b{display:block;font-size:.78rem;letter-spacing:.03em}
+.prep .pl small{font-size:.62rem}
+.prep .sum{margin-top:12px;font-size:.86rem;color:#a29a82;min-height:1.4em}
+.prep .sum b{color:#ece4d0}
+.prep .vs{text-align:center;font-weight:900;font-size:1.7rem;letter-spacing:.06em;color:#d6a847;text-shadow:0 0 18px rgba(214,168,71,.6),0 2px 8px #000}
+.prep .go{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.prep .msg{font-size:.92rem;text-shadow:0 1px 8px #000;min-height:1.4em}
+.prep .confirm{--c:14px;height:56px;min-width:240px;cursor:pointer;background:linear-gradient(160deg,#f1cd7a,#9a7428)}
+.prep .confirm .in{display:grid;place-items:center;font-weight:900;font-size:1.15rem;letter-spacing:.16em;color:#d6a847;background:linear-gradient(180deg,#1a140a,#0d0a06)}
+.prep .confirm:disabled{background:#3a3326;cursor:default}
+.prep .confirm:disabled .in{color:#6b624c}
+.prep .confirm:not(:disabled):hover .in{background:#2a200e}
+.prep .at-slash{color:#e07070}.prep .at-pierce{color:#7eb0ff}.prep .at-blunt{color:#e6c44a}
+#screen[data-layout="desk"] .stage-bg{background-position:center 36%;background-size:cover}
+#screen[data-layout="desk"] .prep{max-width:none;margin:0;padding:0;display:block;overflow:hidden}
+#screen[data-layout="desk"] .prep .top{
+  position:absolute;top:42px;left:50%;width:1560px;transform:translateX(-50%);z-index:2
+}
+#screen[data-layout="desk"] .prep .duel{
+  position:absolute;left:50%;top:48%;width:1500px;transform:translate(-50%,-50%);
+  grid-template-columns:minmax(0,1fr) 84px minmax(0,1fr);gap:8px;z-index:2
+}
+#screen[data-layout="desk"] .prep .go{
+  position:absolute;left:50%;bottom:42px;width:1500px;transform:translateX(-50%);z-index:2
+}
+#screen[data-layout="desk"] .prep .m img{object-fit:contain;object-position:center bottom}
+dialog{border:0;padding:0;background:none;color:#ece4d0;max-width:560px;width:100%;max-height:900px;overflow:visible}
+dialog::backdrop{background:rgba(0,0,0,.7)}
+#rules>.frame{max-height:900px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+#rules>.frame>.in{height:auto;max-height:860px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;padding:20px 22px 16px;overflow:hidden}
+#rules .rules-scroll{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+#rules .rules-scroll::-webkit-scrollbar{width:0;height:0;display:none}
+#rules .rules-foot{flex:0 0 auto;display:flex;justify-content:flex-end;padding-top:14px}
+dialog h3{margin:0 0 12px;font-size:1.1rem;letter-spacing:.14em;color:#d6a847}
+dialog ol{margin:0;padding-left:1.4em;line-height:1.8;font-size:.92rem}
+dialog .close{--c:10px;height:40px;min-width:120px;cursor:pointer}
+dialog .close .in{display:grid;place-items:center;font-weight:800;background:#14110c;color:#ece4d0}
+@container screen (max-width:860px){
+  .prep .duel{grid-template-columns:1fr;gap:6px}
+  .prep .vs{font-size:1.2rem}
+  .prep .hintline{display:none}
+  .prep .go{justify-content:center}
+  .prep .msg{text-align:center;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="stage-bg" aria-hidden="true"><img class="stage-bg-art" src="assets/bg/battle.png" alt=""></div>
+
+<div id="setup" class="prep">
+  <div class="top">
+    <a class="frame sq" href="index.html" aria-label="戻る"><span class="in">←</span></a>
+    <div class="frame title"><div class="in">戦闘準備</div></div>
+    <button type="button" class="frame sq" id="helpBtn" aria-label="ルールを見る"><span class="in">？</span></button>
+    <span class="hintline">編成したチームから、自チームと相手チームを選びます</span>
+  </div>
+  <div class="duel">
+    <section class="frame side me" aria-label="自チーム"><div class="in" id="me"></div></section>
+    <div class="vs" aria-hidden="true">VS</div>
+    <section class="frame side foe" aria-label="相手チーム"><div class="in" id="foe"></div></section>
+  </div>
+  <div class="go">
+    <div class="msg" id="msg" aria-live="polite"></div>
+    <button type="button" class="frame confirm" id="startBtn" disabled><span class="in">戦闘開始</span></button>
+  </div>
+</div>
+<dialog id="rules" aria-labelledby="rulesTitle">
+  <div class="frame"><div class="in">
+    <div class="rules-scroll">
+    <h3 id="rulesTitle">ルール</h3>
+    <ol>
+      <li>各キャラは攻撃スキル4つと通常の防御スキル1つを持つ。幕の開始時、速度ダイスごとに攻撃スキルが2つ出る。</li>
+      <li>出た2つから1つを押すと選択中になる。その状態で相手の速度ダイスを押すと、使うスキルと狙いが決まる。歯車で幕を進める。</li>
+      <li>枠下の頭を押すと、その速度の下のスキルが通常の防御スキルに替わる。もう一度押すと、もとから入っていたスキルに戻る。</li>
+      <li>速度ダイスはそれぞれ相手のダイスを1つ狙う。互いに狙い合うとマッチ。狙った相手のダイスより速ければ、それが別を狙っていても割り込んでマッチになる。それ以外は一方攻撃。通常の防御スキル同士がこの形になるときは相殺で、水色の双方向の矢印と「相殺」が付く。</li>
+      <li>速い順に処理する。同速のときはマッチと相殺を先に処理する。</li>
+      <li>攻撃同士は出目の差。同じ出目はどちらかが負けるまで振り直す。攻撃スキルの防御ダイス同士は相殺で、マッチにならない。防御は差を受け、回避が勝つと残りで次のダイスに対抗する。</li>
+      <li>マッチ可能防御スキルは、通常の防御スキルやマッチ可能防御スキルとマッチにならず、双方が一方攻撃のままになる。攻撃スキルとのマッチに勝つと、そのダイスの威力と、相手のダイスが尽きたあとに残ったダイスを振り、威力だけSANダメージを与える。対象のSANが無いか0なら、威力の半分だけHPダメージになる。マッチに負けると、全ダイスのd値を1にしてから通常の防御として処理する。</li>
+      <li>通常の防御スキルを選んでいる速度が、攻撃スキルの一方攻撃を受けると、双方のダイスを順に振る。ダメージは攻撃の威力から防御の威力を引いたもので、0未満にはならない。</li>
+      <li>脆弱×2、弱点×1.5、普通×1、耐性×0.5、無効×0。端数は切り捨て。混乱抵抗も同じだけ減る。</li>
+      <li>混乱すると、速度ダイスは灰色になって残り、その幕の残りと次の幕は行動できない。受けるダメージの抵抗はすべて脆弱になる。その次の幕の開始時に戻る。</li>
+      <li>精神力が最大の25%以下で幕が始まると、士気低下が起きる。束縛は速度を、武装解除は守備スキルの出目を、虚弱は攻撃スキルの出目を、それぞれ数値ぶん下げる。脆弱は受けたダイスのHPダメージを数値ぶん増やす。どれも最大10で、幕ごとに1減る。</li>
+    </ol>
+    </div>
+    <div class="rules-foot">
+      <button type="button" class="frame close" id="rulesClose"><span class="in">閉じる</span></button>
+    </div>
+  </div></div>
+</dialog>
+
+<div id="field" class="field hidden">
+  <header class="field-bar">
+    <button type="button" id="restart">戻る</button>
+    <div class="scenehead"><strong id="turnLine">第1幕</strong></div>
+    <button type="button" class="ghost" id="logToggle">記録</button>
+  </header>
+  <div id="stage" class="stage">
+    <img class="stage-ground" src="assets/bg/ground.png" alt="">
+    <div id="allyWing" class="wing left"></div>
+    <div id="center" class="center"></div>
+    <div id="foeWing" class="wing right"></div>
+    <svg id="arrows" class="arrows" aria-hidden="true"></svg>
+    <div id="fx" class="fxlayer" aria-hidden="true"></div>
+    <div id="intel" class="intel hidden"></div>
+  </div>
+  <div id="allyPlates" class="plates left"></div>
+  <div id="foePlates" class="plates right"></div>
+  <footer class="dock">
+    <div class="dock-side"></div>
+    <div id="handbar" class="handbar"></div>
+    <div class="dock-side"></div>
+  </footer>
+  <aside id="sheet" class="sheet hidden"></aside>
+</div>
+
+<div id="curtain" class="curtain" aria-hidden="true">
+  <div class="curtain-panel left"></div>
+  <div class="curtain-panel right"></div>
+</div>
+<div id="banner" class="banner" aria-live="polite"></div>
+
+<aside id="logdock" class="logdock hidden">
+  <div class="logdock-head">
+    <h3>戦闘記録</h3>
+    <button type="button" id="logClose">閉じる</button>
+  </div>
+  <div class="logdock-body">
+    <div id="log" class="log"></div>
+    <h3>相手のスキル</h3>
+    <div id="enemyHand"></div>
+  </div>
+</aside>
+
+<script src="js/characters.js"></script>
+<script src="js/characters/keeper.js"></script>
+<script src="js/characters/echo.js"></script>
+<script src="js/characters/shell.js"></script>
+<script src="js/characters/magdeburg.js"></script>
+<script src="js/characters/parensaran.js"></script>
+<script src="js/data.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/frame.js"></script>
+</body>
+</html>

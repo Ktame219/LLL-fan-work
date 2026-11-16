@@ -1,0 +1,56 @@
+html,body{
+  margin:0; width:100%; height:100%; overflow:hidden;
+  background:#000;
+}
+body{touch-action:manipulation;}
+#screen{
+  width:2160px; height:1080px; overflow:hidden;
+  position:fixed; left:0; top:0;
+  background:#070608;
+  container-name:screen;
+  container-type:size;
+}
+#screen>.prep,
+#screen>.wrap,
+#screen>.gate,
+#screen>.title{
+  height:100%; min-height:0; overflow:auto; box-sizing:border-box;
+}
+#screen>.field{height:100%; min-height:0; overflow:hidden;}
+.curtain{position:fixed; inset:0; z-index:30; pointer-events:none; overflow:hidden;}
+.curtain-panel{
+  position:absolute; top:-4%; width:56%; height:108%; will-change:transform;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.05), transparent 12%, transparent 88%, rgba(0,0,0,.4)),
+    repeating-linear-gradient(90deg, #12141a 0 12px, #1b1e27 12px 18px, #0b0c11 18px 30px, #171922 30px 38px);
+}
+.curtain-panel::before,
+.curtain-panel::after{content:""; position:absolute; inset:-6% -10%; pointer-events:none;}
+.curtain-panel::before{
+  background:repeating-linear-gradient(90deg,
+    transparent 0 20px, rgba(255,255,255,.07) 24px, transparent 32px,
+    rgba(0,0,0,.38) 38px, transparent 52px);
+}
+.curtain-panel::after{
+  background:
+    radial-gradient(ellipse at 28% 20%, rgba(255,255,255,.09), transparent 36%),
+    radial-gradient(ellipse at 70% 80%, rgba(0,0,0,.4), transparent 42%);
+}
+.curtain-panel.left{left:0; transform:translateX(-104%); box-shadow:inset -28px 0 36px rgba(0,0,0,.55);}
+.curtain-panel.right{right:0; transform:translateX(104%); box-shadow:inset 28px 0 36px rgba(0,0,0,.55);}
+.curtain.closing .curtain-panel.left{animation:curtainL .52s linear forwards;}
+.curtain.closing .curtain-panel.right{animation:curtainR .52s linear forwards;}
+.curtain.shut .curtain-panel.left{transform:translateX(0);}
+.curtain.shut .curtain-panel.right{transform:translateX(0);}
+.curtain.opening .curtain-panel.left{animation:curtainOpenL .76s linear forwards;}
+.curtain.opening .curtain-panel.right{animation:curtainOpenR .76s linear forwards;}
+@keyframes curtainL{0%{transform:translateX(-104%);}100%{transform:translateX(0);}}
+@keyframes curtainR{0%{transform:translateX(104%);}100%{transform:translateX(0);}}
+@keyframes curtainOpenL{0%{transform:translateX(0);}100%{transform:translateX(-104%);}}
+@keyframes curtainOpenR{0%{transform:translateX(0);}100%{transform:translateX(104%);}}
+html.curtain-hold,
+html.curtain-hold body{background:#000;}
+html.curtain-hold body{visibility:hidden;}
+html.curtain-hold .curtain{visibility:visible;}
+html.curtain-hold .curtain-panel.left,
+html.curtain-hold .curtain-panel.right{transform:translateX(0) !important;animation:none !important;}

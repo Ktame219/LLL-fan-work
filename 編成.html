@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>編成</title>
+<link rel="stylesheet" href="css/frame.css">
+<script>
+try { if (sessionStorage.getItem('formCurtain') === '1') document.documentElement.classList.add('curtain-hold'); } catch (err) {}
+</script>
+<style>
+:root{
+  --bg:#0a0908; --in:#0d0b09; --text:#ece4d0; --dim:#a29a82; --gold:#d6a847; --gold2:#8a6a25; --wood:#1c140e; --c:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Yu Gothic","YuGothic","Hiragino Sans",sans-serif}
+#shelves{position:fixed;inset:0;display:flex;flex-direction:column;background:#0d0a08;opacity:.5}
+.shelf{flex:1;display:flex;align-items:flex-end;overflow:hidden;border-bottom:7px solid var(--wood);padding-top:8px}
+.b{flex:none;margin-right:1px;border-radius:2px 2px 0 0;background-image:linear-gradient(90deg,rgba(0,0,0,.4),rgba(255,255,255,0) 30%,rgba(255,255,255,.07) 62%,rgba(0,0,0,.45))}
+#dim{position:fixed;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(8,7,6,.85),rgba(8,7,6,.94))}
+.frame,.frame>.in{clip-path:polygon(var(--c) 0,calc(100% - var(--c)) 0,100% var(--c),100% calc(100% - var(--c)),calc(100% - var(--c)) 100%,var(--c) 100%,0 calc(100% - var(--c)),0 var(--c))}
+.frame{background:linear-gradient(160deg,var(--gold),var(--gold2));padding:2px;border:0;font:inherit;color:inherit}
+.frame>.in{background:var(--in);width:100%;height:100%}
+.wrap{position:relative;z-index:2;max-width:1120px;margin:0 auto;padding:22px 20px 40px;display:grid;gap:18px}
+.top{display:flex;align-items:center;gap:12px}
+.back{--c:8px;width:56px;height:40px;cursor:pointer;text-decoration:none}
+.back .in{display:grid;place-items:center;font-size:1.3rem;color:var(--gold)}
+.title{--c:12px;min-width:200px}
+.title .in{padding:9px 28px 9px 20px;font-weight:900;font-size:1.15rem;letter-spacing:.14em}
+.count{margin-left:auto;color:var(--dim);font-size:.95rem}
+.count b{color:var(--gold);font-size:1.5rem}
+.stage{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:start}
+.presets{display:grid;gap:8px}
+.presets h2{margin:0 0 2px;font-size:.85rem;font-weight:700;color:var(--dim);letter-spacing:.1em}
+.pre{width:100%;height:44px;cursor:pointer;--c:10px}
+.pre .in{display:flex;align-items:center;padding-left:18px;font-weight:800;letter-spacing:.1em;color:var(--text);background:#14110c}
+.pre[aria-pressed="true"]{background:#f1cd7a}
+.pre[aria-pressed="true"] .in{background:linear-gradient(90deg,#8a6420,#d6a847);color:#17110a}
+.pre small{margin-left:auto;margin-right:12px;font-weight:500;font-size:.72rem;opacity:.8}
+.panel{--c:18px;padding:3px}
+.panel>.in{padding:14px}
+.slots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.slot{--c:12px;aspect-ratio:2/3.3;position:relative;cursor:default}
+.slot>.in{position:relative;overflow:hidden}
+.slot img{width:100%;height:100%;object-fit:contain;object-position:center bottom;background:#100c0a}
+.slot.empty{cursor:pointer;background:linear-gradient(160deg,#5a4519,#3a2c0f)}
+.slot.empty .in{display:grid;place-items:center;font-size:2.6rem;color:#7d6630;background:#0b0907}
+.slot.empty:hover .in{color:var(--gold);background:#16110a}
+.plate{position:absolute;left:0;right:0;bottom:0;padding:26px 6px 8px;text-align:center;background:linear-gradient(0deg,rgba(0,0,0,.92) 35%,rgba(0,0,0,0))}
+.plate b{display:block;font-size:.95rem;letter-spacing:.06em}
+.plate small{color:var(--dim);font-size:.68rem}
+.ops{position:absolute;top:6px;left:6px;right:6px;display:flex;justify-content:space-between;z-index:2}
+.ops button{font-weight:900;font-size:.75rem;color:var(--text);background:rgba(8,7,6,.8);border:1px solid #5a4a22;width:24px;height:24px;border-radius:3px;cursor:pointer;padding:0}
+.ops button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.ops button:disabled{opacity:.3;cursor:default}
+.ops .mv{display:flex;gap:3px}
+.slot.pop{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:translateY(12px) scale(.97);opacity:0}100%{transform:none;opacity:1}}
+.bar{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;justify-content:space-between;margin-top:12px;font-size:.88rem;color:var(--dim)}
+.bar b{color:var(--text);font-weight:700}
+.hint{color:#e8a9a0;min-height:1.3em;font-size:.82rem}
+.confirm{--c:14px;height:54px;min-width:220px;cursor:pointer;background:linear-gradient(160deg,#f1cd7a,#9a7428)}
+.confirm .in{display:grid;place-items:center;font-weight:900;font-size:1.1rem;letter-spacing:.14em;color:var(--gold);background:linear-gradient(180deg,#1a140a,#0d0a06)}
+.confirm:disabled{background:#3a3326;cursor:default}
+.confirm:disabled .in{color:#6b624c}
+.confirm:not(:disabled):hover .in{background:#2a200e}
+.tray h2{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:.95rem;letter-spacing:.1em}
+.filter{position:relative;margin-left:auto}
+.filter-btn{
+  font:inherit;font-weight:800;font-size:.82rem;letter-spacing:.08em;color:var(--text);
+  background:rgba(0,0,0,.55);border:1.5px solid #5a4a22;padding:7px 16px;cursor:pointer;
+}
+.filter-btn[aria-expanded="true"],.filter-btn.on{background:var(--gold);color:#17110a;border-color:var(--gold)}
+.filter-list{
+  position:absolute;right:0;top:calc(100% + 8px);z-index:5;width:240px;
+  background:#14110c;border:1px solid var(--gold);padding:10px 10px 12px;
+  box-shadow:0 12px 28px rgba(0,0,0,.55);
+}
+.filter-list p{margin:8px 0 6px;color:var(--dim);font-size:.72rem;letter-spacing:.12em}
+.filter-list p:first-child{margin-top:0}
+.filter-list button{
+  display:block;width:100%;text-align:left;margin:0 0 4px;padding:7px 10px;
+  font:inherit;font-size:.86rem;color:var(--text);background:transparent;
+  border:1px solid transparent;cursor:pointer;
+}
+.filter-list button[aria-pressed="true"]{border-color:var(--gold);color:#17110a;background:var(--gold)}
+.filter-list button:hover{border-color:#5a4a22}
+.filter-list .clear{margin-top:8px;color:var(--dim);border-color:#3a3326}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.card{--c:10px;cursor:pointer;text-align:left}
+.card>.in{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;padding:8px 10px 8px 8px;position:relative;background:#100d09}
+.card:hover>.in{background:#1d160b}
+.card .th{width:64px;height:84px;overflow:hidden;background:#0b0907}
+.card .th img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.card .nm{font-weight:800;letter-spacing:.05em}
+.card .rl{display:inline-block;margin-left:6px;font-size:.68rem;font-weight:700;padding:0 6px;border:1px solid currentColor}
+.card .sk{display:block;font-size:.72rem;color:var(--dim);margin:2px 0}
+.card .sx{font-size:.7rem;color:var(--dim)}
+.card.on>.in{background:#2a1f0a}
+.card.on{background:linear-gradient(160deg,#f1cd7a,#b88a30)}
+.card .bd{position:absolute;top:5px;right:8px;font-size:.7rem;font-weight:900;color:#17110a;background:var(--gold);padding:0 7px}
+.card.full:not(.on){opacity:.4}
+.at-slash{color:#e07070}
+.at-pierce{color:#7eb0ff}
+.at-blunt{color:#e6c44a}
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:#14110c;border:1px solid var(--gold);padding:10px 20px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:9}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@container screen (max-width:820px){
+  .stage{grid-template-columns:1fr}
+  .presets{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .presets h2{display:none}
+  .pre{height:38px}
+  .pre .in{padding:0;justify-content:center;font-size:.8rem;letter-spacing:0}
+  .pre small{display:none}
+  .panel>.in{padding:8px}
+  .slots{gap:5px}
+  .plate b{font-size:.72rem}
+  .plate small{display:none}
+}
+@media(prefers-reduced-motion:reduce){.slot.pop{animation:none}}
+</style>
+</head>
+<body>
+<div id="shelves" aria-hidden="true"></div>
+<div id="dim"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="frame back" href="index.html" aria-label="戻る"><span class="in">←</span></a>
+    <div class="frame title"><div class="in">編成</div></div>
+    <div class="count" aria-live="polite">選択中 <b id="cnt">0</b> / 5</div>
+  </div>
+  <div class="stage">
+    <div class="presets" id="presets" role="group" aria-label="編成の切り替え"></div>
+    <div>
+      <div class="frame panel"><div class="in">
+        <div class="slots" id="slots"></div>
+        <div class="bar">
+          <div id="sum"></div>
+          <button class="frame confirm" id="ok" type="button" disabled><span class="in">編成を確定</span></button>
+        </div>
+        <div class="hint" id="hint" aria-live="polite"></div>
+      </div></div>
+    </div>
+  </div>
+  <section class="tray" id="tray">
+    <h2>キャラクター一覧
+      <span class="filter">
+        <button type="button" class="filter-btn" id="filterBtn" aria-expanded="false" aria-controls="filterList">絞り込み</button>
+        <div class="filter-list" id="filterList" hidden></div>
+      </span>
+    </h2>
+    <div class="roster" id="roster"></div>
+  </section>
+</div>
+<div id="curtain" class="curtain" aria-hidden="true">
+  <div class="curtain-panel left"></div>
+  <div class="curtain-panel right"></div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="js/characters.js"></script>
+<script src="js/characters/keeper.js"></script>
+<script src="js/characters/echo.js"></script>
+<script src="js/characters/shell.js"></script>
+<script src="js/characters/magdeburg.js"></script>
+<script src="js/characters/parensaran.js"></script>
+<script src="js/data.js"></script>
+<script>
+(function () {
+  var ATTACKS = ['slash', 'pierce', 'blunt'];
+  var saved = readFormation();
+  var presets = saved.presets.map(function (team) { return team.slice(); });
+  var cur = saved.current;
+  var baseline = JSON.stringify({ presets: presets, current: cur });
+  var attacks = [];
+  var words = [];
+  var open = false;
+  var lastAdded = null;
+  var roster = ROSTER_IDS.filter(function (id) { return ROSTER[id].team !== 'off'; });
+
+  function $(id) { return document.getElementById(id); }
+  function team() { return presets[cur]; }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function draft() {
+    return JSON.stringify({ presets: presets, current: cur });
+  }
+  function dirty() { return draft() !== baseline; }
+  function save() {
+    writeFormation({ presets: presets, current: cur });
+    baseline = draft();
+  }
+  function matches(unit) {
+    if (attacks.length && attacks.indexOf(unit.attack) < 0) return false;
+    if (!words.length) return true;
+    return words.some(function (word) { return unit.keywords.indexOf(word) >= 0; });
+  }
+  function say(message) {
+    var toast = $('toast');
+    toast.textContent = message;
+    toast.classList.add('on');
+    clearTimeout(say.timer);
+    say.timer = setTimeout(function () { toast.classList.remove('on'); }, 1800);
+  }
+
+  function renderPresets() {
+    $('presets').innerHTML = '<h2>出撃編成</h2>' + presets.map(function (group, i) {
+      return '<button type="button" class="frame pre" data-pre="' + i + '" aria-pressed="' + (i === cur) + '"><span class="in">編成' + (i + 1) + '<small>' + group.length + '/5</small></span></button>';
+    }).join('');
+  }
+
+  function renderFilter() {
+    var labels = attacks.map(function (key) { return ATTACK_LABEL[key]; }).concat(words);
+    var btn = $('filterBtn');
+    btn.textContent = labels.length ? labels.join('・') : '絞り込み';
+    btn.classList.toggle('on', labels.length > 0);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    $('filterList').hidden = !open;
+    var attackBtns = ATTACKS.map(function (key) {
+      return '<button type="button" data-attack="' + key + '" aria-pressed="' + (attacks.indexOf(key) >= 0) + '">' + ATTACK_LABEL[key] + '</button>';
+    }).join('');
+    var wordBtns = KEYWORDS.map(function (word) {
+      return '<button type="button" data-word="' + word + '" aria-pressed="' + (words.indexOf(word) >= 0) + '">' + word + '</button>';
+    }).join('');
+    $('filterList').innerHTML = '<p>攻撃タイプ</p>' + attackBtns + '<p>キーワード</p>' + wordBtns +
+      '<button type="button" class="clear" data-clear="1">解除</button>';
+  }
+
+  function renderRoster() {
+    var picked = team();
+    var full = picked.length >= 5;
+    $('roster').innerHTML = roster.filter(function (id) { return matches(ROSTER[id]); }).map(function (id) {
+      var unit = ROSTER[id];
+      var index = picked.indexOf(id);
+      var on = index >= 0;
+      var tags = unit.keywords.length ? unit.keywords.join('・') : 'キーワードなし';
+      var attackName = ATTACK_LABEL[unit.attack] || '未設定';
+      var bullets = unit.bullets == null ? '' : '　弾丸 ' + unit.bullets;
+      return '<button type="button" class="frame card' + (on ? ' on' : '') + (full ? ' full' : '') + '" data-id="' + esc(id) + '" aria-pressed="' + on + '"><span class="in">' +
+        (on ? '<span class="bd">' + (index + 1) + '番</span>' : '') +
+        '<span class="th"><img src="' + esc(unit.portrait) + '" alt=""></span><span>' +
+        '<span class="nm">' + esc(unit.name) + '</span><span class="rl' + (ATTACK_LABEL[unit.attack] ? ' at-' + unit.attack : '') + '">' + attackName + '</span>' +
+        '<span class="sk">' + esc(tags) + '</span>' +
+        '<span class="sx">体力 ' + unit.hp + '　速度 ' + unit.speedText + bullets + '</span></span></span></button>';
+    }).join('') || '<p class="hint">該当するキャラはいません。</p>';
+  }
+
+  function renderSlots() {
+    var picked = team();
+    var html = '';
+    for (var i = 0; i < 5; i++) {
+      var id = picked[i];
+      var unit = id ? ROSTER[id] : null;
+      if (unit) {
+        html += '<div class="frame slot' + (id === lastAdded ? ' pop' : '') + '"><div class="in">' +
+          '<img src="' + esc(unit.portrait) + '" alt="">' +
+          '<div class="ops"><span class="mv"><button type="button" data-up="' + i + '" aria-label="' + esc(unit.name) + 'を左へ"' + (i === 0 ? ' disabled' : '') + '>◀</button>' +
+          '<button type="button" data-dn="' + i + '" aria-label="' + esc(unit.name) + 'を右へ"' + (i === picked.length - 1 ? ' disabled' : '') + '>▶</button></span>' +
+          '<button type="button" data-rm="' + i + '" aria-label="' + esc(unit.name) + 'を外す">×</button></div>' +
+          '<div class="plate"><b>' + esc(unit.name) + '</b><small class="' + (ATTACK_LABEL[unit.attack] ? 'at-' + unit.attack : '') + '">' + (ATTACK_LABEL[unit.attack] || '未設定') + '</small></div></div></div>';
+      } else {
+        html += '<button type="button" class="frame slot empty" data-add="1" aria-label="空き枠"><span class="in">+</span></button>';
+      }
+    }
+    $('slots').innerHTML = html;
+    var members = picked.map(function (key) { return ROSTER[key]; });
+    var hp = members.reduce(function (sum, unit) { return sum + unit.hp; }, 0);
+    var speed = members.length
+      ? (members.reduce(function (sum, unit) { return sum + (unit.speedMin + unit.speedMax) / 2; }, 0) / members.length).toFixed(1)
+      : '-';
+    $('sum').innerHTML = '合計体力 <b>' + hp + '</b>　平均速度 <b>' + speed + '</b>';
+    $('hint').textContent = dirty() ? '確定するまで保存されません。戻ると、今回の変更は消えます。' : '保存済みの編成です。';
+    $('cnt').textContent = picked.length;
+    $('ok').disabled = !dirty();
+  }
+
+  function render() {
+    renderPresets();
+    renderFilter();
+    renderRoster();
+    renderSlots();
+    lastAdded = null;
+  }
+
+  function toggle(list, value) {
+    var index = list.indexOf(value);
+    if (index >= 0) list.splice(index, 1);
+    else list.push(value);
+  }
+
+  document.addEventListener('click', function (ev) {
+    var button = ev.target.closest('button');
+    if (!ev.target.closest('.filter')) {
+      if (open) { open = false; renderFilter(); }
+    }
+    if (!button) return;
+    var picked = team();
+    if (button.id === 'filterBtn') {
+      open = !open;
+      renderFilter();
+      return;
+    }
+    if (button.getAttribute('data-clear')) {
+      attacks = [];
+      words = [];
+      render();
+      return;
+    }
+    if (button.getAttribute('data-attack')) {
+      toggle(attacks, button.getAttribute('data-attack'));
+      render();
+      return;
+    }
+    if (button.getAttribute('data-word')) {
+      toggle(words, button.getAttribute('data-word'));
+      render();
+      return;
+    }
+    if (button.getAttribute('data-pre') != null) {
+      cur = Number(button.getAttribute('data-pre'));
+      render();
+      return;
+    }
+    if (button.getAttribute('data-id') != null) {
+      var id = button.getAttribute('data-id');
+      var index = picked.indexOf(id);
+      if (index >= 0) picked.splice(index, 1);
+      else if (picked.length < 5) { picked.push(id); lastAdded = id; }
+      else say('5人まで選べます。誰かを外してください');
+      render();
+      return;
+    }
+    if (button.getAttribute('data-add')) {
+      $('tray').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      say('一覧からキャラクターを選んでください');
+      return;
+    }
+    if (button.getAttribute('data-rm') != null) {
+      picked.splice(Number(button.getAttribute('data-rm')), 1);
+      render();
+      return;
+    }
+    if (button.getAttribute('data-up') != null) {
+      var up = Number(button.getAttribute('data-up'));
+      if (up > 0) { var left = picked[up]; picked[up] = picked[up - 1]; picked[up - 1] = left; render(); }
+      return;
+    }
+    if (button.getAttribute('data-dn') != null) {
+      var down = Number(button.getAttribute('data-dn'));
+      if (down < picked.length - 1) { var right = picked[down]; picked[down] = picked[down + 1]; picked[down + 1] = right; render(); }
+    }
+  });
+
+  $('ok').addEventListener('click', function () {
+    if (!dirty()) return;
+    save();
+    say('編成を保存しました');
+    render();
+  });
+
+  function shelves() {
+    var host = $('shelves');
+    var palette = ['#3b1f1f', '#2a2f3d', '#3a3226', '#1f3a33', '#4a2a2e', '#2b2b36', '#4a3b22', '#5a2020'];
+    var seed = 77;
+    function rnd() {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+    host.innerHTML = '';
+    var frame = document.getElementById('screen');
+    var rows = Math.max(3, Math.round((frame ? frame.clientHeight : window.innerHeight) / 170));
+    var span = (frame ? frame.clientWidth : window.innerWidth) + 60;
+    for (var s = 0; s < rows; s++) {
+      var shelf = document.createElement('div');
+      shelf.className = 'shelf';
+      for (var used = 0; used < span;) {
+        var width = 14 + Math.floor(rnd() * 26);
+        var book = document.createElement('div');
+        book.className = 'b';
+        book.style.cssText = 'width:' + width + 'px;height:' + (62 + Math.floor(rnd() * 36)) + '%;background-color:' + palette[Math.floor(rnd() * palette.length)];
+        shelf.appendChild(book);
+        used += width + 1;
+      }
+      host.appendChild(shelf);
+    }
+  }
+  shelves();
+  var wait;
+  window.addEventListener('screenfit', shelves);
+  window.addEventListener('resize', function () {
+    clearTimeout(wait);
+    wait = setTimeout(shelves, 200);
+  });
+  render();
+})();
+</script>
+<script src="js/frame.js"></script>
+<script>
+(function () {
+  var back = document.querySelector('a.back');
+  if (back) back.addEventListener('click', function (ev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ev.preventDefault();
+    var curtain = document.getElementById('curtain');
+    if (!curtain) { window.location.href = 'index.html'; return; }
+    curtain.style.pointerEvents = 'auto';
+    curtain.className = 'curtain closing';
+    setTimeout(function () {
+      try { sessionStorage.setItem('titleCurtain', '1'); } catch (err) {}
+      window.location.href = 'index.html';
+    }, 520);
+  });
+  if (window.revealCurtain) window.revealCurtain('formCurtain');
+})();
+</script>
+</body>
+</html>

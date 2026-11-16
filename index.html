@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>写し身の間</title>
+<link rel="stylesheet" href="css/battle.css">
+<link rel="stylesheet" href="css/frame.css">
+<script>
+try { if (sessionStorage.getItem('titleCurtain') === '1') document.documentElement.classList.add('curtain-hold'); } catch (err) {}
+</script>
+<style>
+body{font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif;overflow:hidden;}
+#shelves{position:fixed;inset:0;display:flex;flex-direction:column;background:#0d0a08;}
+.shelf{flex:1;display:flex;align-items:flex-end;overflow:hidden;border-bottom:7px solid #1c140e;box-shadow:0 5px 0 #080605,inset 0 -10px 18px rgba(0,0,0,.45);padding-top:8px;}
+.b{position:relative;flex:none;margin-right:1px;border-radius:2px 2px 0 0;background-image:linear-gradient(90deg,rgba(0,0,0,.4),rgba(255,255,255,0) 30%,rgba(255,255,255,.07) 62%,rgba(0,0,0,.45));}
+.b i{position:absolute;left:0;right:0;height:3px;background:rgba(201,162,74,.5);}
+.b.lean{transform:rotate(9deg);transform-origin:bottom left;margin-right:14px;}
+.gap{flex:none;}
+#dim{position:fixed;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(8,8,11,.94) 0%,rgba(8,8,11,.86) 42%,rgba(8,8,11,.35) 72%,rgba(8,8,11,.55) 100%),
+    radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 40%,rgba(0,0,0,.7) 100%);}
+#lamp{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 86% 8%,rgba(255,196,110,.34),rgba(255,160,70,.08) 30%,rgba(0,0,0,0) 55%);mix-blend-mode:screen;animation:flick 6s ease-in-out infinite;}
+#night{position:fixed;inset:0;background:#030304;pointer-events:none;animation:lightOn 2.2s ease-out .2s forwards;}
+@keyframes lightOn{0%{opacity:1}35%{opacity:.82}42%{opacity:.95}60%{opacity:.5}100%{opacity:0}}
+@keyframes flick{0%,100%{opacity:1}48%{opacity:.9}52%{opacity:1}70%{opacity:.94}}
+.title{
+  position:relative;z-index:2;height:100%;display:flex;align-items:center;
+  padding:86px 154px 108px;pointer-events:none;
+}
+.lead{border-left:4px solid #b3141c;padding-left:26px;max-width:640px;pointer-events:auto;}
+.lead h1{margin:0;font-weight:600;font-size:5.4rem;line-height:1.12;letter-spacing:.08em;text-shadow:0 2px 30px rgba(0,0,0,.9);}
+.tag{margin:18px 0 0;color:#9a9684;font-size:1.02rem;line-height:1.9;max-width:28em;}
+.lead nav{display:grid;gap:12px;margin-top:34px;max-width:380px;}
+.lead a.btn{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  text-decoration:none;
+  font-family:"Yu Gothic","YuGothic","Hiragino Sans",sans-serif;font-weight:900;
+  font-size:1.05rem;letter-spacing:.08em;text-align:left;
+  background:#c9a24a;border:2px solid #c9a24a;border-radius:3px;color:#17120a;
+  padding:14px 20px;
+}
+.lead a.btn small{font-weight:400;font-size:.75rem;color:#4a3d18;letter-spacing:.04em;}
+.lead a.btn:hover{background:#e0bb64;border-color:#e0bb64;color:#17120a;}
+.lead a.btn.alt{background:rgba(0,0,0,.6);border-color:#ebe6d9;color:#ebe6d9;}
+.lead a.btn.alt small{color:#9a9684;}
+.lead a.btn.alt:hover{background:#ebe6d9;color:#0b0c10;}
+.lead a.btn.alt:hover small{color:#444;}
+@container screen (max-width:860px){
+  .title{padding:65px 22px;}
+  .lead{padding-left:18px;}
+  #dim{background:linear-gradient(180deg,rgba(8,8,11,.9),rgba(8,8,11,.78));}
+}
+@media(prefers-reduced-motion:reduce){#night{animation:none;opacity:0}#lamp{animation:none}}
+</style>
+</head>
+<body>
+<div id="shelves" aria-hidden="true"></div>
+<div id="dim"></div>
+<div id="lamp"></div>
+<div id="night"></div>
+<div id="curtain" class="curtain" aria-hidden="true">
+  <div class="curtain-panel left"></div>
+  <div class="curtain-panel right"></div>
+</div>
+<main class="title">
+  <section class="lead">
+    <h1>写し身の間</h1>
+    <p class="tag">戦った人の記録を残す。その記録から人を再現し、ここで戦わせる。</p>
+    <nav>
+      <a class="btn" href="戦闘.html">戦闘を始める <small>記録から人を立たせる</small></a>
+      <a class="btn alt" id="toForm" href="編成.html">編成 <small>チームを組む</small></a>
+    </nav>
+  </section>
+</main>
+<script>
+(function () {
+  var host = document.getElementById('shelves');
+  var palette = ['#3b1f1f','#2a2f3d','#3a3226','#1f3a33','#4a2a2e','#2b2b36','#4a3b22','#232a24','#5a2020','#33281f'];
+  function rng(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function build() {
+    host.innerHTML = '';
+    var r = rng(20261114);
+    var box = document.getElementById('screen');
+    var n = Math.max(3, Math.round((box ? box.clientHeight : window.innerHeight) / 170));
+    var width = (box ? box.clientWidth : window.innerWidth) + 60;
+    for (var s = 0; s < n; s++) {
+      var shelf = document.createElement('div');
+      shelf.className = 'shelf';
+      var used = 0;
+      while (used < width) {
+        if (r() < 0.06) {
+          var gap = document.createElement('div');
+          gap.className = 'gap';
+          var gapW = 30 + Math.floor(r() * 60);
+          gap.style.width = gapW + 'px';
+          shelf.appendChild(gap);
+          used += gapW;
+          continue;
+        }
+        var bookW = 14 + Math.floor(r() * 26);
+        var book = document.createElement('div');
+        book.className = 'b' + (r() < 0.04 ? ' lean' : '');
+        book.style.width = bookW + 'px';
+        book.style.height = (62 + Math.floor(r() * 36)) + '%';
+        book.style.backgroundColor = palette[Math.floor(r() * palette.length)];
+        var line = document.createElement('i');
+        line.style.top = (10 + Math.floor(r() * 10)) + '%';
+        book.appendChild(line);
+        if (r() < 0.7) {
+          var line2 = document.createElement('i');
+          line2.style.bottom = (8 + Math.floor(r() * 10)) + '%';
+          book.appendChild(line2);
+        }
+        shelf.appendChild(book);
+        used += bookW + 1;
+      }
+      host.appendChild(shelf);
+    }
+  }
+  build();
+  var wait;
+  window.addEventListener('screenfit', build);
+  window.addEventListener('resize', function () {
+    clearTimeout(wait);
+    wait = setTimeout(build, 200);
+  });
+
+  var curtain = document.getElementById('curtain');
+  var night = document.getElementById('night');
+  var toForm = document.getElementById('toForm');
+  if (toForm) toForm.addEventListener('click', function (ev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ev.preventDefault();
+    curtain.style.pointerEvents = 'auto';
+    curtain.className = 'curtain closing';
+    setTimeout(function () {
+      try { sessionStorage.setItem('formCurtain', '1'); } catch (err) {}
+      window.location.href = '編成.html';
+    }, 520);
+  });
+  try {
+    if (sessionStorage.getItem('titleCurtain') === '1') {
+      night.style.animation = 'none';
+      night.style.opacity = '0';
+    }
+  } catch (err) {}
+})();
+</script>
+<script src="js/frame.js"></script>
+<script>
+if (window.revealCurtain) window.revealCurtain('titleCurtain');
+</script>
+</body>
+</html>
