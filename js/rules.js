@@ -500,7 +500,7 @@ function pairDice(pList, eList) {
       if (usedE[dieKey(d)]) return;
       var p = pList[d.target];
       if (!p || !p.armed || usedP[dieKey(p)]) return;
-      if (sameAim(eList[p.target], d) || d.speed > p.speed) clash(p, d);
+      if (sameAim(eList[p.target], d)) clash(p, d);
     }
   });
   pList.forEach(function (p) {

@@ -1,6 +1,8 @@
 (function () {
   var PHONE_W = 1920;
   var PHONE_H = 1080;
+  var TABLET_W = 1440;
+  var TABLET_H = 1080;
   var DESK_W = 2160;
   var DESK_H = 1080;
   var screen = document.createElement('div');
@@ -14,18 +16,20 @@
     return { x: vv.offsetLeft, y: vv.offsetTop, w: vv.width, h: vv.height };
   }
 
-  function isPhone() {
+  function layoutKind() {
     var coarse = window.matchMedia('(pointer: coarse)').matches;
+    if (!coarse) return 'desk';
     var shortSide = Math.min(window.screen.width, window.screen.height);
-    return coarse && shortSide > 0 && shortSide <= 600;
+    if (shortSide > 0 && shortSide <= 600) return 'phone';
+    return 'tablet';
   }
 
   function fit() {
     var view = viewport();
-    var phone = isPhone();
-    var rotate = phone && view.h > view.w;
-    var designW = phone ? PHONE_W : DESK_W;
-    var designH = phone ? PHONE_H : DESK_H;
+    var kind = layoutKind();
+    var rotate = kind === 'phone' && view.h > view.w;
+    var designW = kind === 'tablet' ? TABLET_W : kind === 'phone' ? PHONE_W : DESK_W;
+    var designH = kind === 'tablet' ? TABLET_H : kind === 'phone' ? PHONE_H : DESK_H;
     screen.style.width = designW + 'px';
     screen.style.height = designH + 'px';
     var scale = rotate
@@ -43,7 +47,7 @@
     screen.style.transform = 'translate(' + tx + 'px, ' + ty + 'px)' + (rotate ? ' rotate(90deg)' : '') + ' scale(' + scale + ')';
     screen.dataset.scale = String(scale);
     screen.dataset.rotate = rotate ? '1' : '';
-    screen.dataset.layout = phone ? 'phone' : 'desk';
+    screen.dataset.layout = kind;
     placeDialogs(scale, rotate);
   }
 
@@ -64,7 +68,7 @@
   var lockTried = false;
   function tryLock() {
     var orient = window.screen.orientation;
-    if (lockTried || !isPhone() || !orient || !orient.lock) return;
+    if (lockTried || layoutKind() !== 'phone' || !orient || !orient.lock) return;
     lockTried = true;
     var lock = orient.lock('landscape');
     if (lock && lock.catch) lock.catch(function () {});
