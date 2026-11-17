@@ -24,6 +24,7 @@
    ダイスの出目は "roll": "2d4" のように書く。2個の4面ダイスを足した値になる。
    "onUse" はスキルを使い始めたときの条件。"onHit" はダイスが的中したときの効果。
      { "op": "burst" }                         振動爆発
+     { "op": "ruptureBurst" }                  破裂爆発
      { "op": "spend", "status": "tremor", "amount": 3 }  その数だけ消費
      { "op": "gain", "status": "burn", "amount": 3 }     その数だけ付与
      { "op": "convert", "from": "tremor", "to": "tremorScorch" }  振幅変換
@@ -31,6 +32,7 @@
    "unbreakableLast": 15 は、対象の火傷と振動の合計が15以上なら最後のダイスを破壊不能にする。
    破壊不能はマッチに負けても消えず、次のダイスとマッチする。双方の処理が終わったあと、残った破壊不能ダイスで攻撃する。
    "powerPer": 7 と "powerMax": 2 は、合計7ごとにスキル威力+1、最大2。
+   "breathAtLeast": 7 と "power": 1 は、自分の呼吸がその数以上ならスキル威力+その数。一方攻撃でも付く。
    "sinkingAtLeast": 6 と "power": 2 は、マッチのとき対象の沈潜がその数以上ならマッチ威力+その数。
    "sinkingPer": 3 と "powerMax": 3 は、マッチのとき対象の沈潜がその数ごとにスキル威力+1、最大 powerMax。
    "gain" はスキルを使い始めたとき、自分に付与する。
@@ -38,6 +40,9 @@
    "critBonus": 3 は、そのダイスがクリティカルしたときダメージをさらにその数増やす。
    "onEvade": [{ "op": "healSan", "amount": 5 }] は回避が攻撃に勝ったとき、SANを戻す。
    "onHit" の { "op": "healSanDealt", "if": "crit" } は、クリティカルで的中したとき与えたダメージだけSANを戻す。
+   "onHit" の gain に "self": true を付けると、付与先は対象ではなく自分。
+   "if": "crit" は、そのダイスがクリティカルしたときだけ。
+   "when": "next" は、今の幕では付かず、次の幕の開始時に付く。
    "motion" はそのスキルを出しているときの立ち絵。"art" はスキル欄の絵。無いときは assets/skills/スキルid.png。
    passives はパッシブの配列。無いキャラは書かなくてよい。名前と説明だけでも表示できる。
    動かすときは hooks に、いつ・何をするかを書く。
@@ -54,6 +59,9 @@
                                                            戦闘開始時、味方の混乱抵抗をその範囲で戻し、自分の混乱抵抗が san 以上なら呼吸
      { "op": "fastestPower", "amount": 1 }                自分の速度が他の全員より高いとき、スキル威力+その数
      { "op": "heal", "amount": 5 }                         マッチに勝ったとき体力を戻す。on は clashWin
+     { "op": "breathSan", "breath": 7, "amount": 8 }       幕の終了時、呼吸がその数以上ならSANを戻す。on は sceneEnd
+     { "op": "higherHp", "amount": 3 }                     対象の体力が自分より高いとき、与えるダメージ+その数。on は damage
+     { "op": "guardedPower", "amount": 1 }                 前の幕に守備スキルを使っていたなら、攻撃スキル威力+その数。on は power
    精神力の効果は low / onBreak / onRecover。空配列 [] は何もしない。
      { "status": "bind", "amount": 3 }         束縛
      { "status": "disarm", "amount": 2 }       武装解除
@@ -65,8 +73,11 @@
      { "status": "scorchAmmo", "amount": 1 }   弾丸-灼熱推進弾
      { "status": "breath", "amount": 1 }       呼吸
      { "status": "sinking", "amount": 1 }      沈潜
+     { "status": "rupture", "amount": 1 }      破裂
+     { "status": "damageDown", "amount": 3 }   ダメージ量減少
    ダイスに "bullet": 1 と書くと、そのダイスがダメージを通したとき弾丸を1消費する。
    "tremorBurst": true と書くと、そのダイスがダメージを通したとき相手に振動爆発が起きる。
+   "ruptureBurst": true と書くと、そのダイスがダメージを通したとき相手に破裂爆発が起きる。
    効果の説明は data.js の STATUS_INFO に書いてある。
    low は精神力が最大の25%以下で幕が始まったとき。
    onBreak は混乱したとき。onRecover は混乱から戻ったとき。

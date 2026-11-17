@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>戦闘</title>
+<script>
+try { if (sessionStorage.getItem('battleInk') === '1') document.documentElement.classList.add('ink-hold'); } catch (err) {}
+</script>
 <link rel="stylesheet" href="css/battle.css">
 <link rel="stylesheet" href="css/frame.css">
 <style>
@@ -160,6 +163,14 @@ dialog .close .in{display:grid;place-items:center;font-weight:800;background:#14
   <aside id="sheet" class="sheet hidden"></aside>
 </div>
 
+<svg id="ink-filter" width="0" height="0" aria-hidden="true">
+  <filter id="goo" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -13"/>
+  </filter>
+</svg>
+<div id="ink-cover"></div>
+<canvas id="ink"></canvas>
 <div id="curtain" class="curtain" aria-hidden="true">
   <div class="curtain-panel left"></div>
   <div class="curtain-panel right"></div>
@@ -184,9 +195,27 @@ dialog .close .in{display:grid;place-items:center;font-weight:800;background:#14
 <script src="js/characters/shell.js"></script>
 <script src="js/characters/magdeburg.js"></script>
 <script src="js/characters/parensaran.js"></script>
+<script src="js/characters/nagel.js"></script>
 <script src="js/data.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/battle.js"></script>
 <script src="js/frame.js"></script>
+<script src="js/ink.js"></script>
+<script>
+(function () {
+  var back = document.querySelector('#setup a.sq');
+  if (back) back.addEventListener('click', function (ev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ev.preventDefault();
+    var go = function () {
+      try { sessionStorage.setItem('titleInk', '1'); } catch (err) {}
+      window.location.href = 'index.html';
+    };
+    if (window.playInkOut) window.playInkOut(go);
+    else go();
+  });
+  if (window.revealInk) window.revealInk('battleInk');
+})();
+</script>
 </body>
 </html>

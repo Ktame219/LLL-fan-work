@@ -922,6 +922,7 @@ body.locked .field,body.locked .logdock,body.locked .gate{pointer-events:none;}
 .skillart.pierce{box-shadow:0 0 0 3px #6d8cff;}
 .skillart.blunt{box-shadow:0 0 0 3px #d7a441;}
 .skillart.block,.skillart.defense{box-shadow:0 0 0 3px #8d7349;}
+.skillart.evade{box-shadow:0 0 0 3px #7dba78;}
 .skillcard.on .skillart{filter:drop-shadow(0 0 8px rgba(230,211,161,.85));}
 .skillicon{width:48px; height:48px; object-fit:contain;}
 .skillicon.fail{display:none;}

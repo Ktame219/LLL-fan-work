@@ -1211,12 +1211,12 @@
     schedule();
   }
 
+  var ATTR_FILE = { slash: 'slash', pierce: 'pierce', blunt: 'blunt', block: 'block', evade: 'Evasion' };
+
   function attackAttr(skill) {
-    if (skill && (skill.attr === 'slash' || skill.attr === 'pierce' || skill.attr === 'blunt' || skill.attr === 'block')) return skill.attr;
+    if (skill && ATTR_FILE[skill.attr]) return skill.attr;
     if (!skill || !skill.dice[0]) return '';
-    var type = skill.dice[0].type;
-    if (type === 'slash' || type === 'pierce' || type === 'blunt' || type === 'block') return type;
-    return '';
+    return ATTR_FILE[skill.dice[0].type] ? skill.dice[0].type : '';
   }
 
   function resistSlot(unit, view) {
@@ -1290,14 +1290,17 @@
   function termHtml(text) {
     var words = [
       ['弾丸-灼熱推進弾', 'status', 'scorchAmmo'],
+      ['ダメージ量減少', 'status', 'damageDown'],
       ['ダメージ量増加', 'status', 'damageUp'],
       ['振動-灼熱', 'status', 'tremorScorch'],
       ['灼熱推進弾', 'status', 'scorchAmmo'],
       ['振動爆発', 'effect', 'tremorBurst'],
+      ['破裂爆発', 'effect', 'ruptureBurst'],
       ['振幅変換', 'effect', 'amplitude'],
       ['弾倉変換', 'effect', 'magazine'],
       ['呼吸', 'status', 'breath'],
       ['沈潜', 'status', 'sinking'],
+      ['破裂', 'status', 'rupture'],
       ['火傷', 'status', 'burn'],
       ['振動', 'status', 'tremor']
     ];
@@ -1372,7 +1375,7 @@
       page = !skills.length ? '<p class="sheet-empty">スキルは未設定</p>' : '<div class="skillgrid">' + skills.map(function (skill, i) {
         var attr = attackAttr(skill);
         var mark = attr
-          ? '<img class="attr" src="assets/ui/Attack_attribute/' + attr + '.png" alt="' + DIE_LABEL[attr] + '">'
+          ? '<img class="attr" src="assets/ui/Attack_attribute/' + ATTR_FILE[attr] + '.png" alt="' + DIE_LABEL[attr] + '">'
           : '';
         return '<button type="button" class="skillcard' + (i === pick ? ' on' : '') + '" data-act="sheet-skill" data-pick="' + i + '">' +
           '<span class="skillart ' + (attr || 'defense') + '">' +
@@ -1490,6 +1493,8 @@
       if (!pickUnit || pickUnit.dead || pickUnit.staggered) return;
       state.selected = { ui: Number(t.getAttribute('data-ui')), slot: Number(t.getAttribute('data-slot')) };
       state.aiming = { ui: state.selected.ui, slot: state.selected.slot, skill: t.getAttribute('data-skill') };
+      if (state.assignments[state.aiming.ui]) state.assignments[state.aiming.ui][state.aiming.slot] = null;
+      if (state.targets[state.aiming.ui]) state.targets[state.aiming.ui][state.aiming.slot] = null;
       state.note = '';
       render();
       return;
@@ -1515,13 +1520,17 @@
       return;
     }
     if (act === 'target') {
-      if (!state.aiming) { state.note = '先にスキルを選んでください'; render(); return; }
+      var chosenUi = state.aiming ? state.aiming.ui : (state.selected ? state.selected.ui : null);
+      var chosen = state.aiming ? state.aiming.slot : (state.selected ? state.selected.slot : null);
+      var skillId = state.aiming ? state.aiming.skill : (chosenUi != null && state.assignments[chosenUi] ? state.assignments[chosenUi][chosen] : null);
+      if (chosenUi == null || !skillId) { state.note = '先にスキルを選んでください'; render(); return; }
       var targetUnit = unitAt('enemy', t.getAttribute('data-ui'));
       if (!targetUnit || targetUnit.dead) return;
-      var chosenUi = state.aiming.ui;
-      var chosen = state.aiming.slot;
-      state.assignments[chosenUi][chosen] = state.aiming.skill;
+      var aimUnit = unitAt('player', chosenUi);
+      if (!aimUnit || aimUnit.dead || aimUnit.staggered) return;
+      state.assignments[chosenUi][chosen] = skillId;
       state.targets[chosenUi][chosen] = Number(t.getAttribute('data-flat'));
+      state.selected = { ui: chosenUi, slot: chosen };
       state.aiming = null;
       state.note = '';
       state.flashSlot = { ui: chosenUi, slot: chosen };

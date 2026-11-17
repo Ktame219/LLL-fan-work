@@ -54,3 +54,15 @@ html.curtain-hold body{visibility:hidden;}
 html.curtain-hold .curtain{visibility:visible;}
 html.curtain-hold .curtain-panel.left,
 html.curtain-hold .curtain-panel.right{transform:translateX(0) !important;animation:none !important;}
+#ink-cover{
+  position:fixed; inset:0; z-index:80; background:#060509; pointer-events:none; visibility:hidden;
+}
+#ink{
+  position:fixed; z-index:81; pointer-events:none; filter:url(#goo);
+}
+html.ink-hold,
+html.ink-hold body{background:#000;}
+html.ink-hold body{visibility:hidden;}
+html.ink-hold #ink,
+html.ink-hold #ink-cover,
+html.ink-hold #ink-filter{visibility:visible;}

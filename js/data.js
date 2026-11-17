@@ -37,6 +37,12 @@ var STATUS_INFO = {
     icon: 'DamageUp.png',
     text: '[1幕] スキルで与えるダメージ量が数値だけ増加する（最大10）'
   },
+  damageDown: {
+    name: 'ダメージ量減少',
+    max: 10,
+    icon: 'DamageDown.png',
+    text: '[1幕] スキルで与えるダメージ量が数値だけ減少する（最大10）'
+  },
   breath: {
     name: '呼吸',
     max: 99,
@@ -61,6 +67,13 @@ var STATUS_INFO = {
       'その後、沈潜の数を半減する',
       '最大99'
     ]
+  },
+  rupture: {
+    name: '破裂',
+    max: 99,
+    icon: 'Rupture.png',
+    text: '破裂爆発を受けた時、破裂の数だけHPダメージを受ける。幕の終了時、1減少（最大99）',
+    lines: ['破裂爆発を受けた時、破裂の数だけHPダメージを受ける', '幕の終了時に1減少', '最大99']
   }
 };
 
@@ -69,6 +82,11 @@ var EFFECT_INFO = {
     name: '振動爆発',
     icon: 'TremorBurst.png',
     lines: ['振動の数だけSANダメージを受ける']
+  },
+  ruptureBurst: {
+    name: '破裂爆発',
+    icon: 'RuptureBurst.png',
+    lines: ['破裂の数だけHPダメージを受ける']
   },
   amplitude: {
     name: '振幅変換',
@@ -82,8 +100,8 @@ var EFFECT_INFO = {
   }
 };
 
-var PASSIVE_ON = { stage: true, hit: true, maxHit: true, attacked: true, power: true, clashWin: true };
-var PASSIVE_OP = { magazine: true, gain: true, nextPower: true, partySan: true, fastestPower: true, heal: true };
+var PASSIVE_ON = { stage: true, hit: true, maxHit: true, attacked: true, power: true, clashWin: true, sceneEnd: true, damage: true };
+var PASSIVE_OP = { magazine: true, gain: true, nextPower: true, partySan: true, fastestPower: true, heal: true, breathSan: true, higherHp: true, guardedPower: true };
 
 function readPassives(ch) {
   var list = ch.passives || [];
@@ -102,9 +120,13 @@ function readPassives(ch) {
       if (hook.skill > attacks.length) throw new Error(passive.name + ' の skill が攻撃スキルの数を超えています');
       if (hook.skill === 0 && !ch.defense) throw new Error(passive.name + ' は防御スキルを指しています');
       if (hook.op === 'gain' && !STATUS_INFO[hook.status]) throw new Error(passive.name + ' の status が不正です');
-      if ((hook.op === 'gain' || hook.op === 'nextPower' || hook.op === 'fastestPower' || hook.op === 'heal') && !(hook.amount > 0)) {
+      if ((hook.op === 'gain' || hook.op === 'nextPower' || hook.op === 'fastestPower' || hook.op === 'heal' || hook.op === 'breathSan' || hook.op === 'higherHp' || hook.op === 'guardedPower') && !(hook.amount > 0)) {
         throw new Error(passive.name + ' の amount が不正です');
       }
+      if (hook.op === 'breathSan' && !(hook.breath > 0)) throw new Error(passive.name + ' の breath が不正です');
+      if (hook.op === 'breathSan' && hook.on !== 'sceneEnd') throw new Error(passive.name + ' の回復は幕の終了時です');
+      if (hook.op === 'higherHp' && hook.on !== 'damage') throw new Error(passive.name + ' のダメージは与えるときです');
+      if (hook.op === 'guardedPower' && hook.on !== 'power') throw new Error(passive.name + ' の威力はスキル威力です');
       if (hook.op === 'partySan' && (!(hook.min >= 1) || !(hook.max >= hook.min) || !(hook.san >= 0) || !(hook.breath > 0))) {
         throw new Error(passive.name + ' の回復範囲が不正です');
       }

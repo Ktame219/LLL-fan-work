@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="css/battle.css">
 <link rel="stylesheet" href="css/frame.css">
 <script>
-try { if (sessionStorage.getItem('titleCurtain') === '1') document.documentElement.classList.add('curtain-hold'); } catch (err) {}
+try { if (sessionStorage.getItem('titleInk') === '1') document.documentElement.classList.add('ink-hold'); } catch (err) {}
 </script>
 <style>
 body{font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif;overflow:hidden;}
@@ -60,16 +60,20 @@ body{font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif;overflow:hi
 <div id="dim"></div>
 <div id="lamp"></div>
 <div id="night"></div>
-<div id="curtain" class="curtain" aria-hidden="true">
-  <div class="curtain-panel left"></div>
-  <div class="curtain-panel right"></div>
-</div>
+<svg id="ink-filter" width="0" height="0" aria-hidden="true">
+  <filter id="goo" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -13"/>
+  </filter>
+</svg>
+<div id="ink-cover"></div>
+<canvas id="ink"></canvas>
 <main class="title">
   <section class="lead">
     <h1>写し身の間</h1>
     <p class="tag">戦った人の記録を残す。その記録から人を再現し、ここで戦わせる。</p>
     <nav>
-      <a class="btn" href="戦闘.html">戦闘を始める <small>記録から人を立たせる</small></a>
+      <a class="btn" id="toBattle" href="戦闘.html">戦闘を始める <small>記録から人を立たせる</small></a>
       <a class="btn alt" id="toForm" href="編成.html">編成 <small>チームを組む</small></a>
     </nav>
   </section>
@@ -133,22 +137,9 @@ body{font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif;overflow:hi
     clearTimeout(wait);
     wait = setTimeout(build, 200);
   });
-
-  var curtain = document.getElementById('curtain');
   var night = document.getElementById('night');
-  var toForm = document.getElementById('toForm');
-  if (toForm) toForm.addEventListener('click', function (ev) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    ev.preventDefault();
-    curtain.style.pointerEvents = 'auto';
-    curtain.className = 'curtain closing';
-    setTimeout(function () {
-      try { sessionStorage.setItem('formCurtain', '1'); } catch (err) {}
-      window.location.href = '編成.html';
-    }, 520);
-  });
   try {
-    if (sessionStorage.getItem('titleCurtain') === '1') {
+    if (sessionStorage.getItem('titleInk') === '1' && night) {
       night.style.animation = 'none';
       night.style.opacity = '0';
     }
@@ -156,8 +147,33 @@ body{font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif;overflow:hi
 })();
 </script>
 <script src="js/frame.js"></script>
+<script src="js/ink.js"></script>
 <script>
-if (window.revealCurtain) window.revealCurtain('titleCurtain');
+(function () {
+  var toBattle = document.getElementById('toBattle');
+  if (toBattle) toBattle.addEventListener('click', function (ev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ev.preventDefault();
+    var go = function () {
+      try { sessionStorage.setItem('battleInk', '1'); } catch (err) {}
+      window.location.href = '戦闘.html';
+    };
+    if (window.playInkOut) window.playInkOut(go);
+    else go();
+  });
+  var toForm = document.getElementById('toForm');
+  if (toForm) toForm.addEventListener('click', function (ev) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ev.preventDefault();
+    var go = function () {
+      try { sessionStorage.setItem('formInk', '1'); } catch (err) {}
+      window.location.href = '編成.html';
+    };
+    if (window.playInkOut) window.playInkOut(go);
+    else go();
+  });
+  if (window.revealInk) window.revealInk('titleInk');
+})();
 </script>
 </body>
 </html>
