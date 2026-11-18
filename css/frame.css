@@ -17,6 +17,25 @@ body{touch-action:manipulation;}
   height:100%; min-height:0; overflow:auto; box-sizing:border-box;
 }
 #screen>.field{height:100%; min-height:0; overflow:hidden;}
+#turn-hint{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:70;
+  box-sizing:border-box;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+  background:#070608;
+  color:#f6ead0;
+  font-family:"Yu Mincho","YuMincho",serif;
+  font-size:1.45rem;
+  font-weight:500;
+  letter-spacing:.14em;
+  line-height:1.7;
+  text-align:center;
+}
+#turn-hint.on{display:flex;}
 .curtain{position:fixed; inset:0; z-index:30; pointer-events:none; overflow:hidden;}
 .curtain-panel{
   position:absolute; top:-4%; width:56%; height:108%; will-change:transform;

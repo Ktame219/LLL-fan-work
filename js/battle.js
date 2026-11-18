@@ -952,6 +952,70 @@
     renderSetup();
   }
 
+  function unitImageSrcs(def) {
+    var list = [];
+    function add(src) { if (src) list.push(src); }
+    add(def.portrait);
+    add(def.head);
+    add(def.stateshead);
+    if (def.mind) add(def.mind.icon);
+    var motions = def.motions || {};
+    Object.keys(motions).forEach(function (key) { add(motions[key]); });
+    (def.attacks || []).concat(def.defense ? [def.defense] : []).forEach(function (skill) {
+      add(skill.art);
+      add(skill.icon);
+      add(skill.motion);
+    });
+    return list;
+  }
+
+  function preloadImages(srcs, done) {
+    var seen = {};
+    var unique = [];
+    srcs.forEach(function (src) {
+      if (!src || seen[src]) return;
+      seen[src] = true;
+      unique.push(src);
+    });
+    var pending = unique.length;
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      done();
+    }
+    if (!pending) { finish(); return; }
+    var timer = setTimeout(finish, 8000);
+    function one() {
+      pending -= 1;
+      if (pending > 0) return;
+      clearTimeout(timer);
+      finish();
+    }
+    unique.forEach(function (src) {
+      var img = new Image();
+      var settled = false;
+      function settle() {
+        if (settled) return;
+        settled = true;
+        one();
+      }
+      function loaded() {
+        if (img.decode) img.decode().then(settle, settle);
+        else settle();
+      }
+      img.onload = loaded;
+      img.onerror = settle;
+      img.src = src;
+      if (img.complete) {
+        img.onload = null;
+        img.onerror = null;
+        if (img.naturalWidth) loaded();
+        else settle();
+      }
+    });
+  }
+
   function startBattle() {
     if (state.phase !== 'setup' || state.leaving) return;
     var pack = chosenTeams();
@@ -960,6 +1024,20 @@
     var stamp = ++state.intro;
     var curtain = $('curtain');
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var srcs = [];
+    pack.allies.concat(pack.foes).forEach(function (id) {
+      if (ROSTER[id]) srcs = srcs.concat(unitImageSrcs(ROSTER[id]));
+    });
+    var imagesReady = false;
+    var curtainReady = reduce || !curtain;
+    function tryEnter() {
+      if (!imagesReady || !curtainReady || state.intro !== stamp) return;
+      enter();
+    }
+    preloadImages(srcs, function () {
+      imagesReady = true;
+      tryEnter();
+    });
     function enter() {
       if (state.intro !== stamp) return;
       state.leaving = false;
@@ -976,10 +1054,16 @@
       document.querySelector('.stage-bg').classList.add('battle-bg');
       openScene(logs, !reduce && !!curtain);
     }
-    if (reduce || !curtain) { enter(); return; }
-    curtain.style.pointerEvents = 'auto';
-    curtain.className = 'curtain closing';
-    state.timer = setTimeout(enter, 520);
+    if (!curtainReady) {
+      curtain.style.pointerEvents = 'auto';
+      curtain.className = 'curtain closing';
+      state.timer = setTimeout(function () {
+        if (state.intro !== stamp) return;
+        if (curtain) curtain.className = 'curtain shut';
+        curtainReady = true;
+        tryEnter();
+      }, 520);
+    }
   }
 
   function enemyJustFell() {

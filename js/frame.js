@@ -49,6 +49,7 @@
     screen.dataset.rotate = rotate ? '1' : '';
     screen.dataset.layout = kind;
     placeDialogs(scale, rotate);
+    turnHint.classList.toggle('on', kind === 'phone' && view.h > view.w);
   }
 
   function placeDialogs(scale, rotate) {
@@ -65,13 +66,28 @@
     }
   }
 
-  var lockTried = false;
+  var turnHint = document.createElement('div');
+  turnHint.id = 'turn-hint';
+  turnHint.setAttribute('role', 'status');
+  turnHint.textContent = '画面を横向きにしてください';
+  document.body.appendChild(turnHint);
+
+  var lockPending = false;
   function tryLock() {
+    if (lockPending || layoutKind() !== 'phone') return;
     var orient = window.screen.orientation;
-    if (lockTried || layoutKind() !== 'phone' || !orient || !orient.lock) return;
-    lockTried = true;
-    var lock = orient.lock('landscape');
-    if (lock && lock.catch) lock.catch(function () {});
+    if (!orient || !orient.lock) return;
+    var view = viewport();
+    if (view.h <= view.w) return;
+    lockPending = true;
+    function done() { lockPending = false; }
+    try {
+      var lock = orient.lock('landscape');
+      if (lock && lock.then) lock.then(done, done);
+      else done();
+    } catch (err) {
+      done();
+    }
   }
 
   fit();
