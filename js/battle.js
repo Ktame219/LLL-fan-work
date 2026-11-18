@@ -42,6 +42,8 @@
     barPct: {},
     beat: 'resolve',
     poses: {},
+    offsets: {},
+    dash: null,
     curtain: false,
     loggedAt: -1,
     sheet: null
@@ -466,26 +468,232 @@
   }
 
   function syncEngage(el, side, forward, rush) {
-    var posed = side === 'player' ? 'translateX(288px)' : 'translateX(-288px)';
-    if (!forward) {
-      el.classList.remove('engage', 'rushing', 'hold');
+    if (!forward && !rush) {
+      el.classList.remove('engage');
       el.style.transition = '';
       el.style.transform = '';
       return;
     }
     el.classList.add('engage');
     el.style.transition = 'none';
-    if (rush && !el.classList.contains('rushing')) {
-      el.classList.remove('hold');
-      el.style.transform = '';
-      void el.offsetWidth;
-      el.classList.add('rushing');
-      return;
+    var off = state.offsets[poseKey(side, Number(el.getAttribute('data-ui')))];
+    if (off != null) el.style.transform = 'translateX(' + off.toFixed(1) + 'px)';
+    else el.style.transform = rush ? 'translateX(0px)' : '';
+  }
+
+  function actorEl(side, ui) {
+    return document.querySelector('.actor[data-side="' + side + '"][data-ui="' + ui + '"]');
+  }
+
+  function camRect(el) {
+    var cam = $('camera');
+    var x = 0;
+    var y = 0;
+    var node = el;
+    while (node && node !== cam) {
+      x += node.offsetLeft;
+      y += node.offsetTop;
+      var tf = getComputedStyle(node).transform;
+      if (tf && tf !== 'none') {
+        var m = new DOMMatrixReadOnly(tf);
+        x += m.m41;
+        y += m.m42;
+      }
+      node = node.offsetParent;
     }
-    if (rush) return;
-    el.classList.remove('rushing');
-    el.classList.add('hold');
-    el.style.transform = posed;
+    return { left: x, top: y, width: el.offsetWidth, height: el.offsetHeight };
+  }
+
+  function hitSpan(side, ui) {
+    if (ui < 0) return null;
+    var el = actorEl(side, ui);
+    var box = el && el.querySelector('.hitbox');
+    if (!box) return null;
+    var r = camRect(box);
+    return { left: r.left, right: r.left + r.width };
+  }
+
+  var CAM_ZOOM = 1.3;
+  var cam = { fx: 0, fy: 0, z: 1, tfx: 0, tfy: 0, tz: 1, tau: 110, raf: 0, last: 0 };
+
+  function applyCam() {
+    var el = $('camera');
+    if (!el) return;
+    var w = el.offsetWidth;
+    var h = el.offsetHeight;
+    var ox = Math.min(0, Math.max(w - w * cam.z, w / 2 - cam.fx * cam.z));
+    var oy = Math.min(0, Math.max(h - h * cam.z, h * 0.55 - cam.fy * cam.z));
+    el.style.transform = cam.z === 1 ? '' : 'translate(' + ox.toFixed(1) + 'px, ' + oy.toFixed(1) + 'px) scale(' + cam.z.toFixed(4) + ')';
+    var bg = document.querySelector('.stage-bg');
+    if (!bg) return;
+    var bz = 1 + (cam.z - 1) * 0.5;
+    var top = el.offsetParent ? $('stage').offsetTop : 0;
+    var bw = bg.offsetWidth;
+    var bh = bg.offsetHeight;
+    var bx = Math.min(0, Math.max(bw - bw * bz, bw / 2 - cam.fx * bz));
+    var by = Math.min(0, Math.max(bh - bh * bz, bh * 0.55 - (cam.fy + top) * bz));
+    bg.style.transform = bz === 1 ? '' : 'translate(' + bx.toFixed(1) + 'px, ' + by.toFixed(1) + 'px) scale(' + bz.toFixed(4) + ')';
+  }
+
+  function camFrame(t) {
+    var dt = cam.last ? Math.min(t - cam.last, 50) : 16;
+    cam.last = t;
+    var k = 1 - Math.exp(-dt / cam.tau);
+    cam.fx += (cam.tfx - cam.fx) * k;
+    cam.fy += (cam.tfy - cam.fy) * k;
+    cam.z += (cam.tz - cam.z) * k;
+    var done = Math.abs(cam.tz - cam.z) < 0.002 && Math.abs(cam.tfx - cam.fx) < 0.5 && Math.abs(cam.tfy - cam.fy) < 0.5;
+    if (done) {
+      cam.fx = cam.tfx;
+      cam.fy = cam.tfy;
+      cam.z = cam.tz;
+    }
+    applyCam();
+    cam.raf = done ? 0 : requestAnimationFrame(camFrame);
+  }
+
+  function runCam() {
+    if (cam.raf) return;
+    cam.last = 0;
+    cam.raf = requestAnimationFrame(camFrame);
+  }
+
+  function camFocus(x, y) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (cam.z === 1 && cam.tz === 1) {
+      cam.fx = x;
+      cam.fy = y;
+    }
+    cam.tfx = x;
+    cam.tfy = y;
+    cam.tz = CAM_ZOOM;
+    cam.tau = 110;
+    runCam();
+  }
+
+  function camRelease() {
+    cam.tz = 1;
+    cam.tau = 160;
+    runCam();
+  }
+
+  function camReset() {
+    if (cam.raf) cancelAnimationFrame(cam.raf);
+    cam.raf = 0;
+    cam.z = 1;
+    cam.tz = 1;
+    applyCam();
+  }
+
+  function spriteCenter(side, ui) {
+    if (ui < 0) return null;
+    var el = actorEl(side, ui);
+    var sprite = el && el.querySelector('.sprite');
+    if (!sprite) return null;
+    var r = camRect(sprite);
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  function followDash() {
+    var d = state.dash;
+    if (!d) return;
+    var pts = [spriteCenter('player', d.player), spriteCenter('enemy', d.enemy)].filter(Boolean);
+    if (!pts.length) {
+      pts = d.movers.map(function (m) { return spriteCenter(m.side, m.ui); }).filter(Boolean);
+    }
+    if (!pts.length) return;
+    var x = 0;
+    var y = 0;
+    pts.forEach(function (p) { x += p.x; y += p.y; });
+    camFocus(x / pts.length, y / pts.length);
+  }
+
+  function dashGap(d) {
+    var a = hitSpan('player', d.player);
+    var b = hitSpan('enemy', d.enemy);
+    if (!a || !b) return d.fallback - d.moved;
+    return b.left - a.right;
+  }
+
+  function stepDash(dt) {
+    var d = state.dash;
+    if (!d.movers.length) return true;
+    var gap = dashGap(d);
+    if (gap <= 0.5) return true;
+    var share = gap / d.movers.length;
+    var step = Math.min(d.speed * dt, share);
+    d.moved += step;
+    d.movers.forEach(function (m) {
+      var key = poseKey(m.side, m.ui);
+      var off = (state.offsets[key] || 0) + (m.side === 'player' ? step : -step);
+      state.offsets[key] = off;
+      var el = actorEl(m.side, m.ui);
+      if (!el) return;
+      el.style.transition = 'none';
+      el.style.transform = 'translateX(' + off.toFixed(1) + 'px)';
+    });
+    return step >= share - 0.01;
+  }
+
+  function stopDash() {
+    var d = state.dash;
+    if (!d) return;
+    if (d.raf) cancelAnimationFrame(d.raf);
+    state.dash = null;
+    var els = document.querySelectorAll('.actor.dashing');
+    for (var i = 0; i < els.length; i++) els[i].classList.remove('dashing');
+  }
+
+  function snapDash() {
+    if (!state.dash) return;
+    if (state.dash.raf) cancelAnimationFrame(state.dash.raf);
+    for (var i = 0; i < 4 && !stepDash(Infinity); i++) {}
+    stopDash();
+  }
+
+  function startDash() {
+    var ev = state.events[state.cursor];
+    if (!state.dash) {
+      var part = attackersOf(ev);
+      var movers = [];
+      ['player', 'enemy'].forEach(function (side) {
+        part[side].forEach(function (ui) {
+          if (!attackedBefore(side, ui, state.cursor)) movers.push({ side: side, ui: ui });
+        });
+      });
+      var screen = $('screen');
+      state.dash = {
+        movers: movers,
+        player: focusUi(ev, 'player'),
+        enemy: focusUi(ev, 'enemy'),
+        fallback: (screen ? screen.offsetWidth : 1920) * 0.06,
+        moved: 0,
+        speed: 0,
+        raf: 0,
+        last: 0
+      };
+      state.dash.speed = Math.max(0.9, dashGap(state.dash) / (APPROACH_MS * 0.85));
+      movers.forEach(function (m) {
+        var el = actorEl(m.side, m.ui);
+        if (el) el.classList.add('dashing');
+      });
+    }
+    var d = state.dash;
+    d.last = 0;
+    followDash();
+    function frame(t) {
+      if (state.dash !== d) return;
+      var dt = d.last ? Math.min(t - d.last, 50) : 16;
+      d.last = t;
+      var hit = stepDash(dt);
+      followDash();
+      if (!hit) { d.raf = requestAnimationFrame(frame); return; }
+      d.raf = 0;
+      impactFlash();
+      stopDash();
+      state.timer = setTimeout(resolveBeat, IMPACT_MS);
+    }
+    d.raf = requestAnimationFrame(frame);
   }
 
   function viewBefore(index) {
@@ -577,7 +785,8 @@
       '<div class="' + cls + '" data-act="sheet" data-side="' + unit.side + '" data-ui="' + unit.ui + '" role="button" aria-label="' + esc(unit.name) + 'の詳細">' +
       morale +
       '<img src="' + esc(src) + '" alt="" onerror="this.classList.add(\'fail\')">' +
-      '<div class="stand">' + esc(unit.name.slice(0, 1)) + '</div></div>' +
+      '<div class="stand">' + esc(unit.name.slice(0, 1)) + '</div>' +
+      '<i class="hitbox" aria-hidden="true"></i></div>' +
       footBuffs(unit) +
       '<div class="ring"></div>';
   }
@@ -713,6 +922,10 @@
       }).join('');
       return '<div class="party"><div class="skillrow">' + cols + '</div></div>';
     }).join('');
+    var cols = state.battle.allies.reduce(function (sum, player) {
+      return player.dead ? sum : sum + player.speedDice.length;
+    }, 0);
+    $('handbar').style.setProperty('--cols', String(Math.max(1, cols)));
     $('handbar').innerHTML = hint + '<div class="parties">' + groups +
       '<button type="button" class="gear" data-act="confirm" aria-label="決定"><img src="assets/ui/gear.png" alt="" onerror="this.classList.add(\'fail\')"></button></div>';
   }
@@ -808,10 +1021,9 @@
   }
 
   function popup(side, ui, text, sub, cls) {
-    var stage = $('stage');
     var sprite = document.querySelector('.actor[data-side="' + side + '"][data-ui="' + ui + '"] .sprite');
     if (!sprite) return;
-    var box = localRect(sprite, stage);
+    var box = camRect(sprite);
     var el = document.createElement('div');
     el.className = 'pop ' + (cls || '');
     var outer = side === 'player' ? 0.12 : 0.88;
@@ -879,6 +1091,9 @@
     state.introView = null;
     state.beat = 'resolve';
     state.poses = {};
+    stopDash();
+    camReset();
+    state.offsets = {};
     state.loggedAt = -1;
     state.focus = { player: -1, enemy: -1 };
     state.assignments = state.battle.allies.map(function (unit) {
@@ -925,6 +1140,9 @@
 
   function showSetup() {
     clearTimeout(state.timer);
+    stopDash();
+    camReset();
+    state.offsets = {};
     state.phase = 'setup';
     state.battle = null;
     state.view = null;
@@ -1132,10 +1350,9 @@
   }
 
   function hitBurst(side, ui) {
-    var stage = $('stage');
     var sprite = document.querySelector('.actor[data-side="' + side + '"][data-ui="' + ui + '"] .sprite');
-    if (!stage || !sprite) return;
-    var box = localRect(sprite, stage);
+    if (!sprite) return;
+    var box = camRect(sprite);
     var el = document.createElement('div');
     el.className = 'hitburst';
     el.style.left = (box.left + box.width * 0.55) + 'px';
@@ -1150,7 +1367,7 @@
   }
 
   function impactFlash() {
-    var sprites = document.querySelectorAll('.actor.rushing .sprite');
+    var sprites = document.querySelectorAll('.actor.dashing .sprite');
     for (var i = 0; i < sprites.length; i++) {
       sprites[i].classList.remove('collide');
       void sprites[i].offsetWidth;
@@ -1160,6 +1377,8 @@
   }
 
   function resolveBeat() {
+    snapDash();
+    camRelease();
     if (state.phase !== 'play') return;
     var ev = state.events[state.cursor];
     if (!ev) return;
@@ -1213,10 +1432,7 @@
       state.view = viewBefore(state.cursor);
       render(false);
       if (state.paused) return;
-      state.timer = setTimeout(function () {
-        impactFlash();
-        state.timer = setTimeout(resolveBeat, IMPACT_MS);
-      }, APPROACH_MS);
+      startDash();
       return;
     }
     resolveBeat();
@@ -1274,6 +1490,7 @@
   function playAll() {
     clearTimeout(state.timer);
     clearSpin();
+    snapDash();
     while (state.cursor < state.events.length - 1) {
       state.cursor += 1;
       if (state.loggedAt !== state.cursor) {
@@ -1626,12 +1843,15 @@
     else if (act === 'all') playAll();
     else if (act === 'pause') {
       state.paused = !state.paused;
-      if (state.paused) { clearTimeout(state.timer); clearSpin(); }
+      if (state.paused) {
+        clearTimeout(state.timer);
+        clearSpin();
+        if (state.dash && state.dash.raf) { cancelAnimationFrame(state.dash.raf); state.dash.raf = 0; }
+      }
       renderHand();
       if (!state.paused) {
         if (state.beat === 'approach') {
-          impactFlash();
-          state.timer = setTimeout(resolveBeat, IMPACT_MS);
+          startDash();
         } else if (state.events[state.cursor] && state.events[state.cursor].kind === 'parry') {
           playParry();
         } else {

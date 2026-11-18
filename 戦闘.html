@@ -147,12 +147,14 @@ dialog .close .in{display:grid;place-items:center;font-weight:800;background:#14
     <button type="button" class="ghost" id="logToggle">記録</button>
   </header>
   <div id="stage" class="stage">
-    <img class="stage-ground" src="assets/bg/ground.png" alt="">
-    <div id="allyWing" class="wing left"></div>
+    <div id="camera" class="camera">
+      <img class="stage-ground" src="assets/bg/ground.png" alt="">
+      <div id="allyWing" class="wing left"></div>
+      <div id="foeWing" class="wing right"></div>
+      <div id="fx" class="fxlayer" aria-hidden="true"></div>
+    </div>
     <div id="center" class="center"></div>
-    <div id="foeWing" class="wing right"></div>
     <svg id="arrows" class="arrows" aria-hidden="true"></svg>
-    <div id="fx" class="fxlayer" aria-hidden="true"></div>
     <div id="intel" class="intel hidden"></div>
   </div>
   <div id="allyPlates" class="plates left"></div>
