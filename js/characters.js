@@ -20,7 +20,7 @@
    attack は主に使う攻撃タイプ。 "slash" 斬撃 / "pierce" 貫通 / "blunt" 打撃 のどれか1つ。未定なら書かない。
    keywords は絞り込み用の配列。次の語だけが使える。空配列 [] でもよい。
      "火傷" "出血" "振動" "破裂" "沈潜" "呼吸" "充電"
-   attacks は攻撃スキル4つ。defense は通常の防御スキル1つ。matchable が true ならマッチ可能防御スキル。未定なら attacks は []、defense は null。
+   attacks は戦術スキル4つ。defense は通常の防御スキル1つ。matchable が true ならマッチ可能防御スキル。attacks の中にも書ける。未定なら attacks は []、defense は null。
    ダイスの出目は "roll": "2d4" のように書く。2個の4面ダイスを足した値になる。
    "onUse" はスキルを使い始めたときの条件。"onHit" はダイスが的中したときの効果。
      { "op": "burst" }                         振動爆発
@@ -35,7 +35,10 @@
    "breathAtLeast": 7 と "power": 1 は、自分の呼吸がその数以上ならスキル威力+その数。一方攻撃でも付く。
    "sinkingAtLeast": 6 と "power": 2 は、マッチのとき対象の沈潜がその数以上ならマッチ威力+その数。
    "sinkingPer": 3 と "powerMax": 3 は、マッチのとき対象の沈潜がその数ごとにスキル威力+1、最大 powerMax。
-   "gain" はスキルを使い始めたとき、自分に付与する。
+   "gain" はスキルを使い始めたとき、自分に付与する。"when": "next" で次の幕、"party": true で生きている味方全員（自分を含む）。
+   "unbreakable": true はそのダイスを常に破壊不能にする。
+   "onWin": [{ "op": "nextDiePower", "amount": 6 }] は、そのダイスがマッチに勝ったとき、同じスキルの次のダイス威力+その数。
+   "onHit" の { "op": "maxDown", "amount": 3 } は、相手が次に振るダイスの最大値をその数下げる。幕をまたがない。
    "cleanse": { "breath": 10, "spend": 5 } は、呼吸がその数以上で自分にデバフがあるとき、デバフを1つ消し呼吸を消費する。
    "critBonus": 3 は、そのダイスがクリティカルしたときダメージをさらにその数増やす。
    "onEvade": [{ "op": "healSan", "amount": 5 }] は回避が攻撃に勝ったとき、SANを戻す。
@@ -50,7 +53,7 @@
      "on": "hit"       ダイスが的中したとき
      "on": "maxHit"    ダイスの出目が最大値で的中したとき
      "on": "attacked"  相手の攻撃ダイスを受けたとき
-     "skill": 2        攻撃スキルの2番目を使ったときだけ。防御スキルは 0
+     "skill": 2        戦術スキルの2番目を使ったときだけ。防御スキルは 0
      "if": "staggeredLast"  前の幕に、自分が敵を混乱させていたときだけ
      { "op": "magazine" }                                  弾倉変換
      { "op": "gain", "status": "tremor", "amount": 2 }     的中時は対象へ、最大値的中時は自分へ付与
@@ -61,7 +64,10 @@
      { "op": "heal", "amount": 5 }                         マッチに勝ったとき体力を戻す。on は clashWin
      { "op": "breathSan", "breath": 7, "amount": 8 }       幕の終了時、呼吸がその数以上ならSANを戻す。on は sceneEnd
      { "op": "higherHp", "amount": 3 }                     対象の体力が自分より高いとき、与えるダメージ+その数。on は damage
-     { "op": "guardedPower", "amount": 1 }                 前の幕に守備スキルを使っていたなら、攻撃スキル威力+その数。on は power
+     { "op": "guardedPower", "amount": 1 }                 前の幕に守備スキルを使っていたなら、戦術スキル威力+その数。on は power
+     { "op": "evadePower", "speed": 3, "amount": 3 }       速度がその数以上なら、回避ダイス威力+その数。on は power
+     { "op": "typeDamage", "type": "slash", "amount": 6 }  その攻撃タイプのダメージ+その数。on は damage
+     gain に "self": true で自分へ、"when": "next" で次の幕に付く。
    精神力の効果は low / onBreak / onRecover。空配列 [] は何もしない。
      { "status": "bind", "amount": 3 }         束縛
      { "status": "disarm", "amount": 2 }       武装解除
@@ -75,6 +81,10 @@
      { "status": "sinking", "amount": 1 }      沈潜
      { "status": "rupture", "amount": 1 }      破裂
      { "status": "damageDown", "amount": 3 }   ダメージ量減少
+     { "status": "staggerFragile", "amount": 2 } 混乱脆弱
+     { "status": "power", "amount": 1 }        パワー
+     { "status": "protect", "amount": 1 }      保護
+   ダメージ量減少・混乱脆弱・パワー・保護は、次の幕の開始時に消える。
    ダイスに "bullet": 1 と書くと、そのダイスがダメージを通したとき弾丸を1消費する。
    "tremorBurst": true と書くと、そのダイスがダメージを通したとき相手に振動爆発が起きる。
    "ruptureBurst": true と書くと、そのダイスがダメージを通したとき相手に破裂爆発が起きる。
@@ -82,6 +92,7 @@
    low は精神力が最大の25%以下で幕が始まったとき。
    onBreak は混乱したとき。onRecover は混乱から戻ったとき。
    lowText と breakText は画面に出す説明文。
+   "breakResist": "weak" は混乱中の耐性。書かなければ全て脆弱（fatal）。
    抵抗の倍率は fatal 脆弱×2 / weak 弱点×1.5 / normal 普通×1 / endured 抵抗×0.5 / immune 無効×0。
 */
 var CHARACTER_DATA = [];

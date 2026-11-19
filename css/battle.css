@@ -168,6 +168,9 @@ summary{cursor:pointer; color:var(--gold-2);}
 .actor.left.engage{transform:translateX(var(--lunge));}
 .actor.right.engage{transform:translateX(calc(-1 * var(--lunge)));}
 .hitbox{position:absolute; left:10%; bottom:0; width:80%; height:85%; pointer-events:none;}
+.field:not(.planning) .actor .speeds{visibility:hidden;}
+.actor{opacity:1; transition:transform .38s cubic-bezier(.3,.9,.35,1), opacity .25s ease;}
+.actor.dim{opacity:.35;}
 .sprite{
   position:relative; width:250px; height:330px; pointer-events:auto; cursor:pointer; transform-origin:50% 100%;
   display:flex; align-items:flex-end; justify-content:center; overflow:visible;
@@ -893,7 +896,9 @@ body.locked .field,body.locked .logdock,body.locked .gate{pointer-events:none;}
   position:absolute; z-index:5; overflow:auto; box-sizing:border-box;
   left:7.2%; top:42.6%; width:86.2%; height:46%;
   padding:4px 8px 8px;
+  scrollbar-width:none;
 }
+.sheet-page::-webkit-scrollbar{display:none;}
 .sheet-close{
   position:absolute; z-index:4; top:2.4%; right:3.6%;
   width:22px; height:22px; padding:0; line-height:20px;

@@ -78,7 +78,7 @@ CHARACTER_DATA.push(
         {
           "type": "blunt",
           "roll": "5d2",
-          "text": "クリティカル的中時、次のRにダメージ量減少3を付与",
+          "text": "クリティカル的中時、次の幕にダメージ量減少3を付与",
           "onHit": [{ "op": "gain", "status": "damageDown", "amount": 3, "if": "crit", "when": "next" }]
         }
       ]
@@ -150,7 +150,7 @@ CHARACTER_DATA.push(
     {
       "id": "ng-suppress",
       "name": "制圧",
-      "text": "効果：前のRに守備スキルを使用したなら、攻撃スキル威力+1",
+      "text": "効果：前の幕に守備スキルを使用したなら、戦術スキル威力+1",
       "hooks": [
         { "on": "power", "op": "guardedPower", "amount": 1 }
       ]

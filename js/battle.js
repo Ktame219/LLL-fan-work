@@ -594,6 +594,41 @@
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
 
+  function castOf(ev) {
+    if (!ev) return [];
+    var list = [];
+    var p = focusUi(ev, 'player');
+    var e = focusUi(ev, 'enemy');
+    if (p >= 0) list.push({ side: 'player', ui: p });
+    if (e >= 0) list.push({ side: 'enemy', ui: e });
+    return list;
+  }
+
+  function sceneCast() {
+    if (state.phase !== 'play') return null;
+    var ev = currentEvent();
+    if (!ev) return null;
+    if (isMeleeKind(ev.kind) || ev.kind === 'cancel') return castOf(ev);
+    if (ev.kind !== 'stagger' && ev.kind !== 'death') return null;
+    for (var i = state.cursor - 1; i >= 0; i--) {
+      var prev = state.events[i];
+      if (isMeleeKind(prev.kind) || prev.kind === 'cancel') return castOf(prev);
+    }
+    return [{ side: ev.target, ui: ev.ui }];
+  }
+
+  function camForEvent(ev) {
+    if (!ev) { camRelease(); return; }
+    if (ev.kind === 'stagger' || ev.kind === 'death') return;
+    if (!isMeleeKind(ev.kind) && ev.kind !== 'cancel') { camRelease(); return; }
+    var pts = castOf(ev).map(function (c) { return spriteCenter(c.side, c.ui); }).filter(Boolean);
+    if (!pts.length) { camRelease(); return; }
+    var x = 0;
+    var y = 0;
+    pts.forEach(function (p) { x += p.x; y += p.y; });
+    camFocus(x / pts.length, y / pts.length);
+  }
+
   function followDash() {
     var d = state.dash;
     if (!d) return;
@@ -990,6 +1025,8 @@
     var ev = currentEvent();
     var allyNodes = document.querySelectorAll('#allyWing .actor');
     var foeNodes = document.querySelectorAll('#foeWing .actor');
+    var cast = sceneCast();
+    $('field').classList.toggle('planning', state.phase === 'plan');
     function pose(nodes, side) {
       for (var i = 0; i < nodes.length; i++) {
         var ui = Number(nodes[i].getAttribute('data-ui'));
@@ -998,6 +1035,8 @@
         var acting = part[side].indexOf(ui) >= 0;
         var rush = !!(ev && state.beat === 'approach' && acting && !attackedBefore(side, ui, state.cursor));
         syncEngage(nodes[i], side, forward, rush);
+        var lit = !cast || !cast.length || cast.some(function (c) { return c.side === side && c.ui === ui; });
+        nodes[i].classList.toggle('dim', !lit);
       }
     }
     pose(allyNodes, 'player');
@@ -1378,10 +1417,9 @@
 
   function resolveBeat() {
     snapDash();
-    camRelease();
-    if (state.phase !== 'play') return;
+    if (state.phase !== 'play') { camRelease(); return; }
     var ev = state.events[state.cursor];
-    if (!ev) return;
+    if (!ev) { camRelease(); return; }
     state.beat = 'resolve';
     state.view = ev.units;
     state.focus = ev.focus || { player: -1, enemy: -1 };
@@ -1390,6 +1428,7 @@
       logLine(ev.text, ev.cls);
     }
     render(true);
+    camForEvent(ev);
     if (ev.kind === 'parry') { playParry(); return; }
     playFx(ev);
     schedule();
@@ -1440,6 +1479,7 @@
 
   function finishPlayback() {
     clearTimeout(state.timer);
+    camRelease();
     if (state.battle.over) {
       state.phase = 'over';
       if (state.events.length) state.view = state.events[state.events.length - 1].units;
@@ -1491,6 +1531,7 @@
     clearTimeout(state.timer);
     clearSpin();
     snapDash();
+    camRelease();
     while (state.cursor < state.events.length - 1) {
       state.cursor += 1;
       if (state.loggedAt !== state.cursor) {
@@ -1521,9 +1562,9 @@
   }
 
   function resistSlot(unit, view) {
-    var resist = view.staggered
+    var resist = view.resist || (view.staggered
       ? { slash: 'fatal', pierce: 'fatal', blunt: 'fatal' }
-      : (view.resist || unit.resist);
+      : unit.resist);
     return '<div class="sheet-bars">' +
       '<div class="resistslot">' +
       '<img class="resistframe" src="assets/ui/Resistance_slot.png" alt="">' +
@@ -1599,6 +1640,13 @@
       ['破裂爆発', 'effect', 'ruptureBurst'],
       ['振幅変換', 'effect', 'amplitude'],
       ['弾倉変換', 'effect', 'magazine'],
+      ['混乱脆弱', 'status', 'staggerFragile'],
+      ['武装解除', 'status', 'disarm'],
+      ['パワー', 'status', 'power'],
+      ['脆弱', 'status', 'fragile'],
+      ['束縛', 'status', 'bind'],
+      ['虚弱', 'status', 'feeble'],
+      ['保護', 'status', 'protect'],
       ['呼吸', 'status', 'breath'],
       ['沈潜', 'status', 'sinking'],
       ['破裂', 'status', 'rupture'],

@@ -1,8 +1,11 @@
 var STATUS_INFO = {
   disarm: { name: '武装解除', max: 10, text: '[1幕] 武装解除の数だけ守備スキル威力減少（最大10）' },
   bind: { name: '束縛', max: 10, text: '[1幕] 速度が束縛の数だけ減少（最大10）' },
-  feeble: { name: '虚弱', max: 10, text: '[1幕] 虚弱の数だけ攻撃スキル威力減少（最大10）' },
+  feeble: { name: '虚弱', max: 10, text: '[1幕] 虚弱の数だけ戦術スキル威力減少（最大10）' },
   fragile: { name: '脆弱', max: 10, text: '[1幕] ダイスのダメージを受ける時、脆弱の数だけ受けるHPダメージが増加（最大10）' },
+  staggerFragile: { name: '混乱脆弱', max: 10, text: '[1幕] ダイスのダメージを受ける時、混乱脆弱の数だけ受けるSANダメージが増加（最大10）' },
+  power: { name: 'パワー', max: 10, text: '[1幕] パワーの数だけ戦術スキル威力増加（最大10）' },
+  protect: { name: '保護', max: 10, text: '[1幕] 保護の数だけスキルで受けるHPダメージが減少（最大10）' },
   burn: {
     name: '火傷',
     max: 99,
@@ -101,7 +104,7 @@ var EFFECT_INFO = {
 };
 
 var PASSIVE_ON = { stage: true, hit: true, maxHit: true, attacked: true, power: true, clashWin: true, sceneEnd: true, damage: true };
-var PASSIVE_OP = { magazine: true, gain: true, nextPower: true, partySan: true, fastestPower: true, heal: true, breathSan: true, higherHp: true, guardedPower: true };
+var PASSIVE_OP = { magazine: true, gain: true, nextPower: true, partySan: true, fastestPower: true, heal: true, breathSan: true, higherHp: true, guardedPower: true, evadePower: true, typeDamage: true };
 
 function readPassives(ch) {
   var list = ch.passives || [];
@@ -117,12 +120,15 @@ function readPassives(ch) {
       if (hook.skill != null && (typeof hook.skill !== 'number' || hook.skill < 0)) {
         throw new Error(passive.name + ' の skill は 0 以上の数です');
       }
-      if (hook.skill > attacks.length) throw new Error(passive.name + ' の skill が攻撃スキルの数を超えています');
+      if (hook.skill > attacks.length) throw new Error(passive.name + ' の skill が戦術スキルの数を超えています');
       if (hook.skill === 0 && !ch.defense) throw new Error(passive.name + ' は防御スキルを指しています');
       if (hook.op === 'gain' && !STATUS_INFO[hook.status]) throw new Error(passive.name + ' の status が不正です');
-      if ((hook.op === 'gain' || hook.op === 'nextPower' || hook.op === 'fastestPower' || hook.op === 'heal' || hook.op === 'breathSan' || hook.op === 'higherHp' || hook.op === 'guardedPower') && !(hook.amount > 0)) {
+      if ((hook.op === 'gain' || hook.op === 'nextPower' || hook.op === 'fastestPower' || hook.op === 'heal' || hook.op === 'breathSan' || hook.op === 'higherHp' || hook.op === 'guardedPower' || hook.op === 'evadePower' || hook.op === 'typeDamage') && !(hook.amount > 0)) {
         throw new Error(passive.name + ' の amount が不正です');
       }
+      if (hook.when && hook.when !== 'next') throw new Error(passive.name + ' の when は next です');
+      if (hook.op === 'evadePower' && (hook.on !== 'power' || !(hook.speed >= 0))) throw new Error(passive.name + ' の回避威力は on が power で、speed が必要です');
+      if (hook.op === 'typeDamage' && (hook.on !== 'damage' || !ATTACK_LABEL[hook.type])) throw new Error(passive.name + ' のダメージは on が damage で、type は slash / pierce / blunt です');
       if (hook.op === 'breathSan' && !(hook.breath > 0)) throw new Error(passive.name + ' の breath が不正です');
       if (hook.op === 'breathSan' && hook.on !== 'sceneEnd') throw new Error(passive.name + ' の回復は幕の終了時です');
       if (hook.op === 'higherHp' && hook.on !== 'damage') throw new Error(passive.name + ' のダメージは与えるときです');
@@ -233,9 +239,12 @@ function readSpeed(ch) {
     if (!teams[ch.team]) throw new Error(ch.id + ' の team は player / select / off です');
     var attacks = ch.attacks || [];
     if (!Array.isArray(attacks)) throw new Error(ch.id + ' の attacks は配列です');
-    if (attacks.length && attacks.length !== 4) throw new Error(ch.id + ' の攻撃スキルは4つです');
+    if (attacks.length && attacks.length !== 4) throw new Error(ch.id + ' の戦術スキルは4つです');
     if (ch.defense && !ch.defense.id) throw new Error(ch.id + ' の防御スキルが不正です');
     if (!ch.mind) throw new Error(ch.id + ' に mind がありません');
+    if (ch.mind.breakResist && ['fatal', 'weak', 'normal', 'endured', 'immune'].indexOf(ch.mind.breakResist) < 0) {
+      throw new Error(ch.id + ' の breakResist は fatal / weak / normal / endured / immune です');
+    }
     if (ch.attack && !ATTACK_LABEL[ch.attack]) throw new Error(ch.id + ' の attack は slash / pierce / blunt です');
     if (ch.bullets != null && (typeof ch.bullets !== 'number' || ch.bullets < 0)) {
       throw new Error(ch.id + ' の bullets は0以上の数です');
@@ -249,6 +258,7 @@ function readSpeed(ch) {
     if (ch.defense) skills.push(ch.defense);
     skills.forEach(function (skill) {
       if (!skill.id || !skill.dice || !skill.dice.length) throw new Error(ch.id + ' のスキルが不正です');
+      if (skill.matchable && skill !== ch.defense && attacks.indexOf(skill) < 0) throw new Error(ch.id + ' の matchable が不正です');
       skill.dice.forEach(function (die) { parseDie(die, ch.id + ' ' + skill.name); });
       if (seenSkill[skill.id]) throw new Error('スキル id が重複しています: ' + skill.id);
       seenSkill[skill.id] = true;
@@ -284,6 +294,7 @@ function readSpeed(ch) {
         icon: ch.mind.icon,
         low: ch.mind.lowText || 'なし',
         breakText: ch.mind.breakText || '',
+        breakResist: ch.mind.breakResist || 'fatal',
         lowEffects: ch.mind.low || [],
         onBreak: ch.mind.onBreak || [],
         onRecover: ch.mind.onRecover || []

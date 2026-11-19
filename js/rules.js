@@ -84,7 +84,7 @@ function createUnit(def, side, key, ui) {
       pierce: def.resist.pierce,
       blunt: def.resist.blunt
     },
-    attacks: (def.attacks || []).map(function (id) { return skillRecord(id, 'attack'); }),
+    attacks: (def.attacks || []).map(function (id) { return skillRecord(id, PAGE[id].matchable ? 'matchDefense' : 'attack'); }),
     defense: def.defense ? skillRecord(def.defense, PAGE[def.defense] && PAGE[def.defense].matchable ? 'matchDefense' : 'defense') : null,
     speedDice: [],
     staggered: false,
@@ -97,6 +97,7 @@ function createUnit(def, side, key, ui) {
     staggeredEnemyLast: false,
     scenePower: 0,
     pending: [],
+    maxDown: 0,
     status: blankStatus(),
   };
 }
@@ -162,7 +163,22 @@ function tickStatuses(unit) {
   ['bind', 'disarm', 'feeble', 'fragile', 'damageUp'].forEach(function (key) {
     if (unit.status[key] > 0) unit.status[key] -= 1;
   });
-  if (unit.status.damageDown) unit.status.damageDown = 0;
+  ['damageDown', 'staggerFragile', 'power', 'protect'].forEach(function (key) {
+    if (unit.status[key]) unit.status[key] = 0;
+  });
+  unit.maxDown = 0;
+}
+
+function queueNext(unit, status, amount, lines) {
+  if (!unit || unit.dead || !STATUS_INFO[status] || !amount) return;
+  unit.pending = unit.pending || [];
+  unit.pending.push({ status: status, amount: amount });
+  lines.push('次の幕、' + unit.name + 'は' + STATUS_INFO[status].name + amount + 'を受ける。');
+}
+
+function matesOf(unit) {
+  if (!unit.battle) return [unit];
+  return unitsOf(unit.battle, unit.side).filter(function (mate) { return !mate.dead; });
 }
 
 function flushPending(unit, logs) {
@@ -181,29 +197,35 @@ function statusPotency(unit, key) {
 
 function skillPower(unit, page, natural, fixed) {
   if (fixed != null) return fixed;
-  var cut = isGuardPage(page)
-    ? statusPotency(unit, 'disarm')
-    : statusPotency(unit, 'feeble');
-  return Math.max(0, natural - cut);
+  var guard = isGuardPage(page);
+  var cut = guard ? statusPotency(unit, 'disarm') : statusPotency(unit, 'feeble');
+  var up = guard ? 0 : statusPotency(unit, 'power');
+  return Math.max(0, natural - cut + up);
 }
 
 function rollNatural(die) {
+  var sum = 0;
   if (die.rolls && die.faces) {
-    var sum = 0;
     for (var i = 0; i < die.rolls; i++) sum += rollInt(1, die.faces);
-    return sum;
+  } else {
+    sum = rollInt(die.min, die.max);
   }
-  return rollInt(die.min, die.max);
+  if (die.maxCut) sum = Math.min(sum, Math.max(die.min, die.max - die.maxCut));
+  return sum;
 }
 
 function rollPower(unit, page, die) {
   if (die.fixed != null) return die.fixed;
+  if (unit && unit.maxDown && die.maxCut == null) {
+    die.maxCut = unit.maxDown;
+    unit.maxDown = 0;
+  }
   var natural = rollNatural(die);
   die.natural = natural;
   return skillPower(unit, page, natural + (die.powerBonus || 0), null);
 }
 
-var DEBUFF_KEYS = ['disarm', 'bind', 'feeble', 'fragile', 'burn', 'tremor', 'tremorScorch', 'sinking', 'rupture', 'damageDown'];
+var DEBUFF_KEYS = ['disarm', 'bind', 'feeble', 'fragile', 'staggerFragile', 'burn', 'tremor', 'tremorScorch', 'sinking', 'rupture', 'damageDown'];
 
 function debuffKeys(unit) {
   return DEBUFF_KEYS.filter(function (key) { return statusPotency(unit, key) > 0; });
@@ -257,10 +279,24 @@ function openSkill(unit, page, target, speed, clash) {
   var fast = fastestPower(unit, speed);
   if (fast) notes.push('他の誰より速い。スキル威力+' + fast + '。');
   var guarded = !isGuardPage(page) && unit && unit.guardPower ? unit.guardPower : 0;
-  if (guarded) notes.push('前の幕に守備スキルを使った。攻撃スキル威力+' + guarded + '。');
-  if (onUse.gain) gainStatuses(unit, onUse.gain).forEach(function (text) { notes.push(text); });
+  if (guarded) notes.push('前の幕に守備スキルを使った。戦術スキル威力+' + guarded + '。');
+  (onUse.gain || []).forEach(function (gain) {
+    (gain.party ? matesOf(unit) : [unit]).forEach(function (who) {
+      if (gain.when === 'next') {
+        queueNext(who, gain.status, gain.amount, notes);
+        return;
+      }
+      gainStatuses(who, [gain]).forEach(function (text) { notes.push(text); });
+    });
+  });
   if (onUse.cleanse) cleanseOne(unit, onUse.cleanse.breath || 0, onUse.cleanse.spend || 0, notes);
-  dice.forEach(function (die) { die.powerBonus = bonus + extra + fast + guarded; });
+  var evade = evadePowerAmount(unit, speed);
+  if (evade && dice.some(function (die) { return die.type === 'evade'; })) {
+    notes.push('速度' + speed + '。回避ダイス威力+' + evade + '。');
+  }
+  dice.forEach(function (die) {
+    die.powerBonus = bonus + extra + fast + guarded + (die.type === 'evade' ? evade : 0);
+  });
   if (!isGuardPage(page)) noteBreath(unit, dice, notes);
   return { dice: dice, notes: notes };
 }
@@ -364,7 +400,7 @@ function beginScene(battle) {
       logs.push({ cls: 'win', text: unit.name + 'は攻撃を受けた反動で、この幕のスキル威力+' + unit.scenePower + '。' });
     }
     if (unit.guardPower) {
-      logs.push({ cls: 'win', text: unit.name + 'は前の幕に守備スキルを使い、この幕の攻撃スキル威力+' + unit.guardPower + '。' });
+      logs.push({ cls: 'win', text: unit.name + 'は前の幕に守備スキルを使い、この幕の戦術スキル威力+' + unit.guardPower + '。' });
     }
     if (battle.scene === 1) {
       var stageLines = [];
@@ -627,9 +663,7 @@ function snapUnit(unit) {
     staggered: unit.staggered,
     dead: unit.dead,
     status: copyStatus(unit.status),
-    resist: unit.staggered
-      ? { slash: 'fatal', pierce: 'fatal', blunt: 'fatal' }
-      : { slash: unit.resist.slash, pierce: unit.resist.pierce, blunt: unit.resist.blunt }
+    resist: resistNow(unit)
   };
 }
 
@@ -660,7 +694,8 @@ function copyDice(page) {
       critBonus: die.critBonus || 0,
       clashed: false,
       onHit: die.onHit || null,
-      onEvade: die.onEvade || null
+      onEvade: die.onEvade || null,
+      onWin: die.onWin || null
     };
   });
 }
@@ -683,6 +718,38 @@ function higherHpDamage(unit, target) {
   return total;
 }
 
+function evadePowerAmount(unit, speed) {
+  if (!unit || speed == null) return 0;
+  var total = 0;
+  (unit.passives || []).forEach(function (passive) {
+    (passive.hooks || []).forEach(function (hook) {
+      if (hook && hook.op === 'evadePower' && speed >= hook.speed) total += hook.amount || 0;
+    });
+  });
+  return total;
+}
+
+function typeDamageAmount(unit, type) {
+  var total = 0;
+  (unit.passives || []).forEach(function (passive) {
+    (passive.hooks || []).forEach(function (hook) {
+      if (hook && hook.op === 'typeDamage' && hook.type === type) total += hook.amount || 0;
+    });
+  });
+  return total;
+}
+
+function boostLines(unit, boost, lines) {
+  if (boost.spent) lines.push(unit.name + 'は弾丸' + boost.spent + 'を消費した。');
+  if (boost.bonus) lines.push('灼熱推進弾でダメージ+' + boost.bonus + '。');
+  if (boost.typed) lines.push(DIE_LABEL[boost.type] + 'ダメージ+' + boost.typed + '。');
+  if (boost.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boost.up + '。');
+  if (boost.down) lines.push(STATUS_INFO.damageDown.name + 'でダメージ-' + boost.down + '。');
+  if (boost.breath) lines.push('呼吸でダメージ+' + boost.breath + '。');
+  if (boost.critBonus) lines.push('クリティカルダメージ+' + boost.critBonus + '。');
+  if (boost.higher) lines.push('対象の体力が上回っている。ダメージ+' + boost.higher + '。');
+}
+
 function guardedPowerAmount(unit) {
   var total = 0;
   (unit.passives || []).forEach(function (passive) {
@@ -694,7 +761,7 @@ function guardedPowerAmount(unit) {
 }
 
 function boostedRaw(unit, die, speed, raw, target) {
-  if (raw <= 0 || !isOffense(die.type)) return { raw: raw, bonus: 0, spent: 0, up: 0, down: 0, breath: 0, critBonus: 0, higher: 0 };
+  if (raw <= 0 || !isOffense(die.type)) return { raw: raw, bonus: 0, spent: 0, typed: 0, type: die.type, up: 0, down: 0, breath: 0, critBonus: 0, higher: 0 };
   var cost = bulletCost(die);
   var spent = 0;
   var bonus = 0;
@@ -705,6 +772,8 @@ function boostedRaw(unit, die, speed, raw, target) {
     if (statusPotency(unit, 'scorchAmmo') > 0) bonus = speed >= 6 ? 5 : 2;
     next += bonus;
   }
+  var typed = typeDamageAmount(unit, die.type);
+  if (typed) next += typed;
   var up = statusPotency(unit, 'damageUp');
   if (up) next += up;
   var breath = die.breath || 0;
@@ -716,7 +785,7 @@ function boostedRaw(unit, die, speed, raw, target) {
   var down = statusPotency(unit, 'damageDown');
   var cut = down ? Math.min(down, next) : 0;
   next -= cut;
-  return { raw: next, bonus: bonus, spent: spent, up: up, down: cut, breath: breath, critBonus: critBonus, higher: higher };
+  return { raw: next, bonus: bonus, spent: spent, typed: typed, type: die.type, up: up, down: cut, breath: breath, critBonus: critBonus, higher: higher };
 }
 
 function healHp(unit, amount) {
@@ -886,8 +955,12 @@ function runPassives(unit, on, ctx) {
         return;
       }
       if (hook.op === 'gain') {
-        var who = on === 'hit' ? ctx.target : unit;
+        var who = on === 'hit' && !hook.self ? ctx.target : unit;
         if (!who || who.dead) return;
+        if (hook.when === 'next') {
+          queueNext(who, hook.status, hook.amount, lines);
+          return;
+        }
         gainStatuses(who, [{ status: hook.status, amount: hook.amount }]).forEach(function (text) {
           lines.push(text);
         });
@@ -923,6 +996,19 @@ function runPassives(unit, on, ctx) {
           : unit.name + 'は呼吸' + have + 'だが、混乱抵抗は最大の' + unit.staggerMax + 'だ。');
       }
     });
+  });
+}
+
+function dieWin(unit, die, next, lines) {
+  if (!unit || unit.dead || !die) return;
+  (die.onWin || []).forEach(function (op) {
+    if (!op || op.op !== 'nextDiePower') return;
+    if (!next) {
+      lines.push(unit.name + 'に威力を上げる次のダイスはない。');
+      return;
+    }
+    next.powerBonus = (next.powerBonus || 0) + (op.amount || 0);
+    lines.push(unit.name + 'の次のダイス威力+' + (op.amount || 0) + '。');
   });
 }
 
@@ -984,11 +1070,8 @@ function applyOnHit(atk, def, die, lines, hits, broken, dead, dealt) {
       if (op.if === 'crit' && !die.breath) return;
       var who = op.self ? atk : def;
       if (!who || who.dead) return;
-      var gainInfo = STATUS_INFO[op.status];
       if (op.when === 'next') {
-        who.pending = who.pending || [];
-        who.pending.push({ status: op.status, amount: op.amount });
-        lines.push('次の幕、' + who.name + 'は' + gainInfo.name + (op.amount || 0) + 'を受ける。');
+        queueNext(who, op.status, op.amount, lines);
         return;
       }
       gainStatuses(who, [{ status: op.status, amount: op.amount }]).forEach(function (text) {
@@ -997,6 +1080,11 @@ function applyOnHit(atk, def, die, lines, hits, broken, dead, dealt) {
       return;
     }
     if (!def || def.dead) return;
+    if (op.op === 'maxDown') {
+      def.maxDown = (def.maxDown || 0) + (op.amount || 0);
+      lines.push(def.name + 'の次のダイスの最大値-' + def.maxDown + '。');
+      return;
+    }
     if (op.op === 'burst') {
       noteBurst(def, lines, hits, broken, dead, atk);
       return;
@@ -1287,18 +1375,40 @@ function judgeDice(a, b, ar, br) {
   return protectUnbreakable(a, b, out);
 }
 
+function breakResist(unit) {
+  return (unit.mind && unit.mind.breakResist) || 'fatal';
+}
+
+function resistNow(unit) {
+  if (!unit.staggered) return { slash: unit.resist.slash, pierce: unit.resist.pierce, blunt: unit.resist.blunt };
+  var key = breakResist(unit);
+  return { slash: key, pierce: key, blunt: key };
+}
+
 function applyDamage(unit, type, raw) {
-  var key = unit.staggered ? 'fatal' : unit.resist[type];
-  var mult = unit.staggered ? 2 : RES_MULT[unit.resist[type]];
+  var key = resistNow(unit)[type];
+  var mult = RES_MULT[key];
   var amount = Math.floor(raw * mult);
   if (amount < 0) amount = 0;
   var hpAmount = amount;
-  if (amount > 0) hpAmount += statusPotency(unit, 'fragile');
+  var sanAmount = amount;
+  var guard = 0;
+  var sanUp = 0;
+  if (amount > 0) {
+    hpAmount += statusPotency(unit, 'fragile');
+    guard = Math.min(hpAmount, statusPotency(unit, 'protect'));
+    hpAmount -= guard;
+    sanUp = statusPotency(unit, 'staggerFragile');
+    sanAmount += sanUp;
+  }
   unit.hp = Math.max(0, unit.hp - hpAmount);
-  unit.stagger = Math.max(0, unit.stagger - amount);
+  unit.stagger = Math.max(0, unit.stagger - sanAmount);
   if (unit.hp <= 0) unit.dead = true;
   return {
     amount: hpAmount,
+    san: sanAmount,
+    sanUp: sanUp,
+    protect: guard,
     mult: mult,
     key: key,
     broke: !unit.dead && !unit.staggered && unit.stagger <= 0,
@@ -1307,7 +1417,10 @@ function applyDamage(unit, type, raw) {
 }
 
 function hitText(unit, type, raw, result) {
-  return unit.name + 'へ' + DIE_LABEL[type] + raw + '（' + RES_LABEL[result.key] + '×' + result.mult + ' → ' + result.amount + '）。体力' + unit.hp + '、混乱抵抗' + unit.stagger + '。';
+  var extra = '';
+  if (result.protect) extra += '保護で体力ダメージ-' + result.protect + '。';
+  if (result.sanUp) extra += '混乱脆弱でSANダメージ+' + result.sanUp + '。';
+  return unit.name + 'へ' + DIE_LABEL[type] + raw + '（' + RES_LABEL[result.key] + '×' + result.mult + ' → ' + result.amount + '）。' + extra + '体力' + unit.hp + '、混乱抵抗' + unit.stagger + '。';
 }
 
 function finishBreak(unit, events, battle) {
@@ -1322,7 +1435,8 @@ function finishBreak(unit, events, battle) {
     cls: 'bad',
     target: unit.side,
     ui: unit.ui,
-    text: unit.name + 'は混乱した。速度ダイスは残るが灰色になり、この幕の残りと次の幕は行動できない。受けるダメージの抵抗はすべて脆弱になる。' +
+    text: unit.name + 'は混乱した。速度ダイスは残るが灰色になり、この幕の残りと次の幕は行動できない。受けるダメージの抵抗はすべて' +
+      (breakResist(unit) === 'weak' ? '弱点' : RES_LABEL[breakResist(unit)]) + 'になる。' +
       (gained.length ? gained.join('') : '')
   });
 }
@@ -1383,13 +1497,7 @@ function resolveOneDie(battle, atk, def, dice, index, speedDie, events, lead) {
   types[atk.side] = die.type;
   var hits = [{ side: def.side, ui: def.ui, amount: result.amount, key: result.key }];
   var lines = [(lead || '一方攻撃。') + die.shown + '。'];
-  if (boost.spent) lines.push(atk.name + 'は弾丸' + boost.spent + 'を消費した。');
-  if (boost.bonus) lines.push('灼熱推進弾でダメージ+' + boost.bonus + '。');
-  if (boost.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boost.up + '。');
-  if (boost.down) lines.push(STATUS_INFO.damageDown.name + 'でダメージ-' + boost.down + '。');
-  if (boost.breath) lines.push('呼吸でダメージ+' + boost.breath + '。');
-  if (boost.critBonus) lines.push('クリティカルダメージ+' + boost.critBonus + '。');
-  if (boost.higher) lines.push('対象の体力が上回っている。ダメージ+' + boost.higher + '。');
+  boostLines(atk, boost, lines);
   lines.push(hitText(def, die.type, boost.raw, result));
   var broken = [];
   var dead = [];
@@ -1543,13 +1651,7 @@ function resolveContested(battle, ally, foe, aDice, bDice, cursor, speedA, speed
   if (judged.rawToB > 0) {
     var boostB = boostedRaw(ally, a, speedA.speed, judged.rawToB, foe);
     var toEnemy = applyDamage(foe, a.type, boostB.raw);
-    if (boostB.spent) lines.push(ally.name + 'は弾丸' + boostB.spent + 'を消費した。');
-    if (boostB.bonus) lines.push('灼熱推進弾でダメージ+' + boostB.bonus + '。');
-    if (boostB.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boostB.up + '。');
-    if (boostB.down) lines.push(STATUS_INFO.damageDown.name + 'でダメージ-' + boostB.down + '。');
-    if (boostB.breath) lines.push('呼吸でダメージ+' + boostB.breath + '。');
-    if (boostB.critBonus) lines.push('クリティカルダメージ+' + boostB.critBonus + '。');
-    if (boostB.higher) lines.push('対象の体力が上回っている。ダメージ+' + boostB.higher + '。');
+    boostLines(ally, boostB, lines);
     lines.push(hitText(foe, a.type, boostB.raw, toEnemy));
     hits.push({ side: 'enemy', ui: foe.ui, amount: toEnemy.amount, key: toEnemy.key });
     if (toEnemy.broke) queueBreak(broken, foe, ally);
@@ -1560,13 +1662,7 @@ function resolveContested(battle, ally, foe, aDice, bDice, cursor, speedA, speed
   if (judged.rawToA > 0) {
     var boostA = boostedRaw(foe, b, speedB.speed, judged.rawToA, ally);
     var toPlayer = applyDamage(ally, b.type, boostA.raw);
-    if (boostA.spent) lines.push(foe.name + 'は弾丸' + boostA.spent + 'を消費した。');
-    if (boostA.bonus) lines.push('灼熱推進弾でダメージ+' + boostA.bonus + '。');
-    if (boostA.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boostA.up + '。');
-    if (boostA.down) lines.push(STATUS_INFO.damageDown.name + 'でダメージ-' + boostA.down + '。');
-    if (boostA.breath) lines.push('呼吸でダメージ+' + boostA.breath + '。');
-    if (boostA.critBonus) lines.push('クリティカルダメージ+' + boostA.critBonus + '。');
-    if (boostA.higher) lines.push('対象の体力が上回っている。ダメージ+' + boostA.higher + '。');
+    boostLines(foe, boostA, lines);
     lines.push(hitText(ally, b.type, boostA.raw, toPlayer));
     hits.push({ side: 'player', ui: ally.ui, amount: toPlayer.amount, key: toPlayer.key });
     if (toPlayer.broke) queueBreak(broken, ally, foe);
@@ -1576,8 +1672,13 @@ function resolveContested(battle, ally, foe, aDice, bDice, cursor, speedA, speed
   }
   if (judged.winner === 'a' && a.type === 'evade' && isOffense(b.type)) noteEvade(ally, a, lines);
   else if (judged.winner === 'b' && b.type === 'evade' && isOffense(a.type)) noteEvade(foe, b, lines);
-  if (judged.winner === 'a') noteClashWin(ally, lines);
-  else if (judged.winner === 'b') noteClashWin(foe, lines);
+  if (judged.winner === 'a') {
+    dieWin(ally, a, aDice[ai + 1], lines);
+    noteClashWin(ally, lines);
+  } else if (judged.winner === 'b') {
+    dieWin(foe, b, bDice[bi + 1], lines);
+    noteClashWin(foe, lines);
+  }
   var cls = 'clash';
   if (judged.rawToA > 0 || judged.rawToB > 0) cls = 'hit';
   else if (judged.winner === 'tie') cls = 'dim';
@@ -1743,17 +1844,11 @@ function resolveGuardDice(battle, atk, def, atkSpeed, defSpeed, events) {
     }
     markAttacked(def, die);
     var boost = boostedRaw(atk, die, atkSpeed.speed, raw, def);
-    var result = raw > 0 ? applyDamage(def, die.type, boost.raw) : { amount: 0, key: def.resist[die.type], broke: false, died: def.dead };
+    var result = raw > 0 ? applyDamage(def, die.type, boost.raw) : { amount: 0, key: resistNow(def)[die.type], broke: false, died: def.dead };
     var lines = [(i === 0 ? lead : '') + die.shown];
     if (guardRoll != null) lines.push('、防御 ' + guard.shown + '。ダメージ' + raw + '。');
     else lines.push('。受ける防御ダイスがない。');
-    if (boost.spent) lines.push(atk.name + 'は弾丸' + boost.spent + 'を消費した。');
-    if (boost.bonus) lines.push('灼熱推進弾でダメージ+' + boost.bonus + '。');
-    if (boost.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boost.up + '。');
-  if (boost.down) lines.push(STATUS_INFO.damageDown.name + 'でダメージ-' + boost.down + '。');
-    if (boost.breath) lines.push('呼吸でダメージ+' + boost.breath + '。');
-    if (boost.critBonus) lines.push('クリティカルダメージ+' + boost.critBonus + '。');
-    if (boost.higher) lines.push('対象の体力が上回っている。ダメージ+' + boost.higher + '。');
+    boostLines(atk, boost, lines);
     if (raw > 0) lines.push(hitText(def, die.type, boost.raw, result));
     else if (guard && guard.type === 'evade') noteEvade(def, guard, lines);
     else lines.push(def.name + 'はダメージを受けない。');
