@@ -105,8 +105,8 @@ var EFFECT_INFO = {
   },
   magazine: {
     name: '弾倉変換',
-    icon: 'MagazineConversion.png',
-    lines: ['自分の弾丸の数だけ、弾丸-灼熱推進弾を得る', '既についている数値は維持され、そこに足される', '弾丸の数は減らない']
+    icon: 'AmmoConversion.png',
+    lines: ['弾丸を別タイプの弾丸へ変換する', '変換時、既存弾丸の数値は維持される', '変換された弾丸も弾丸として扱う']
   }
 };
 

@@ -55,7 +55,7 @@
      "on": "attacked"  相手の攻撃ダイスを受けたとき
      "skill": 2        戦術スキルの2番目を使ったときだけ。防御スキルは 0
      "if": "staggeredLast"  前の幕に、自分が敵を混乱させていたときだけ
-     { "op": "magazine" }                                  弾倉変換
+     { "op": "magazine" }                                  弾倉変換。弾丸を全て弾丸-灼熱推進弾に置き換える。数は変わらず、弾丸として消費される
      { "op": "gain", "status": "tremor", "amount": 2 }     的中時は対象へ、最大値的中時は自分へ付与
      { "op": "nextPower", "amount": 2 }                    攻撃を受けた次の幕、スキル威力+その数
      { "op": "partySan", "min": 1, "max": 5, "san": 30, "breath": 5 }

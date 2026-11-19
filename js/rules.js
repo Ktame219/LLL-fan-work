@@ -749,7 +749,7 @@ function boostLines(unit, boost, lines) {
     lines.push(unit.name + 'は弾丸がなく、攻撃はキャンセルされた。');
     return;
   }
-  if (boost.spent) lines.push(unit.name + 'は弾丸' + boost.spent + 'を消費した。残り' + statusPotency(unit, 'ammo') + '。');
+  if (boost.spent) lines.push(unit.name + 'は弾丸' + boost.spent + 'を消費した。残り' + ammoTotal(unit) + '。');
   if (boost.bonus) lines.push('灼熱推進弾でダメージ+' + boost.bonus + '。');
   if (boost.typed) lines.push(DIE_LABEL[boost.type] + 'ダメージ+' + boost.typed + '。');
   if (boost.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boost.up + '。');
@@ -775,13 +775,14 @@ function boostedRaw(unit, die, speed, raw, target) {
   var spent = 0;
   var bonus = 0;
   var next = raw;
-  if (cost && statusPotency(unit, 'ammo') < cost) {
+  if (cost && ammoTotal(unit) < cost) {
     return { raw: 0, empty: true, bonus: 0, spent: 0, typed: 0, type: die.type, up: 0, down: 0, breath: 0, critBonus: 0, higher: 0 };
   }
   if (cost) {
-    unit.status.ammo -= cost;
+    var scorch = spendStatus(unit, 'scorchAmmo', cost);
+    spendStatus(unit, 'ammo', cost - scorch);
     spent = cost;
-    if (statusPotency(unit, 'scorchAmmo') > 0) bonus = speed >= 6 ? 5 : 2;
+    if (scorch > 0) bonus = speed >= 6 ? 5 : 2;
     next += bonus;
   }
   var typed = typeDamageAmount(unit, die.type);
@@ -942,16 +943,17 @@ function nextPowerAmount(unit) {
   return total;
 }
 
+function ammoTotal(unit) {
+  return statusPotency(unit, 'ammo') + statusPotency(unit, 'scorchAmmo');
+}
+
 function magazineConvert(unit) {
   var info = STATUS_INFO.scorchAmmo;
   var bullets = statusPotency(unit, 'ammo');
   if (!bullets) return [unit.name + 'に変換する弾丸はなかった。'];
-  var before = statusPotency(unit, 'scorchAmmo');
-  var next = Math.min(statusMax('scorchAmmo'), before + bullets);
-  unit.status.scorchAmmo = next;
-  var got = next - before;
-  if (!got) return [unit.name + 'の' + info.name + 'は最大の' + statusMax('scorchAmmo') + 'だ。'];
-  return [unit.name + 'の弾丸' + bullets + 'が' + info.name + got + 'になった。弾丸は' + bullets + 'のまま。'];
+  unit.status.ammo = 0;
+  unit.status.scorchAmmo = Math.min(statusMax('scorchAmmo'), statusPotency(unit, 'scorchAmmo') + bullets);
+  return [unit.name + 'の弾丸' + bullets + 'が' + info.name + 'に変換された。' + info.name + unit.status.scorchAmmo + '。'];
 }
 
 function runPassives(unit, on, ctx) {
