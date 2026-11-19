@@ -78,7 +78,6 @@ function createUnit(def, side, key, ui) {
     speedMax: def.speedMax,
     speedRolls: def.speedRolls || 0,
     speedFaces: def.speedFaces || 0,
-    bullets: def.bullets,
     resist: {
       slash: def.resist.slash,
       pierce: def.resist.pierce,
@@ -98,7 +97,7 @@ function createUnit(def, side, key, ui) {
     scenePower: 0,
     pending: [],
     maxDown: 0,
-    status: blankStatus(),
+    status: startStatus(def),
   };
 }
 
@@ -129,6 +128,12 @@ function statusMax(key) {
 function blankStatus() {
   var status = {};
   Object.keys(STATUS_INFO).forEach(function (key) { status[key] = 0; });
+  return status;
+}
+
+function startStatus(def) {
+  var status = blankStatus();
+  if (def.bullets) status.ammo = Math.min(statusMax('ammo'), def.bullets);
   return status;
 }
 
@@ -740,7 +745,11 @@ function typeDamageAmount(unit, type) {
 }
 
 function boostLines(unit, boost, lines) {
-  if (boost.spent) lines.push(unit.name + 'は弾丸' + boost.spent + 'を消費した。');
+  if (boost.empty) {
+    lines.push(unit.name + 'は弾丸がなく、攻撃はキャンセルされた。');
+    return;
+  }
+  if (boost.spent) lines.push(unit.name + 'は弾丸' + boost.spent + 'を消費した。残り' + statusPotency(unit, 'ammo') + '。');
   if (boost.bonus) lines.push('灼熱推進弾でダメージ+' + boost.bonus + '。');
   if (boost.typed) lines.push(DIE_LABEL[boost.type] + 'ダメージ+' + boost.typed + '。');
   if (boost.up) lines.push(STATUS_INFO.damageUp.name + 'でダメージ+' + boost.up + '。');
@@ -766,8 +775,11 @@ function boostedRaw(unit, die, speed, raw, target) {
   var spent = 0;
   var bonus = 0;
   var next = raw;
-  if (cost && (unit.bullets || 0) >= cost) {
-    unit.bullets -= cost;
+  if (cost && statusPotency(unit, 'ammo') < cost) {
+    return { raw: 0, empty: true, bonus: 0, spent: 0, typed: 0, type: die.type, up: 0, down: 0, breath: 0, critBonus: 0, higher: 0 };
+  }
+  if (cost) {
+    unit.status.ammo -= cost;
     spent = cost;
     if (statusPotency(unit, 'scorchAmmo') > 0) bonus = speed >= 6 ? 5 : 2;
     next += bonus;
@@ -932,7 +944,7 @@ function nextPowerAmount(unit) {
 
 function magazineConvert(unit) {
   var info = STATUS_INFO.scorchAmmo;
-  var bullets = unit.bullets || 0;
+  var bullets = statusPotency(unit, 'ammo');
   if (!bullets) return [unit.name + 'に変換する弾丸はなかった。'];
   var before = statusPotency(unit, 'scorchAmmo');
   var next = Math.min(statusMax('scorchAmmo'), before + bullets);
@@ -1485,9 +1497,11 @@ function resolveOneDie(battle, atk, def, dice, index, speedDie, events, lead) {
   }
   var roll = rollPower(atk, speedDie.page, die);
   die.shown = DIE_SHORT[die.type] + ' ' + roll;
-  markAttacked(def, die);
   var boost = boostedRaw(atk, die, speedDie.speed, roll, def);
-  var result = applyDamage(def, die.type, boost.raw);
+  if (!boost.empty) markAttacked(def, die);
+  var result = boost.empty
+    ? { amount: 0, key: resistNow(def)[die.type], broke: false, died: def.dead }
+    : applyDamage(def, die.type, boost.raw);
   var selfCol = sideColumn(atk, speedDie, dice, index, true);
   var defCol = emptyColumn(def);
   var placed = atk.side === 'player' ? { left: selfCol, right: defCol } : { left: defCol, right: selfCol };
@@ -1495,15 +1509,15 @@ function resolveOneDie(battle, atk, def, dice, index, speedDie, events, lead) {
   var types = {};
   rolls[atk.side] = roll;
   types[atk.side] = die.type;
-  var hits = [{ side: def.side, ui: def.ui, amount: result.amount, key: result.key }];
+  var hits = boost.empty ? [] : [{ side: def.side, ui: def.ui, amount: result.amount, key: result.key }];
   var lines = [(lead || '一方攻撃。') + die.shown + '。'];
   boostLines(atk, boost, lines);
-  lines.push(hitText(def, die.type, boost.raw, result));
+  if (!boost.empty) lines.push(hitText(def, die.type, boost.raw, result));
   var broken = [];
   var dead = [];
   if (result.broke) queueBreak(broken, def, atk);
   if (result.died) dead.push(def);
-  if (roll > 0) {
+  if (roll > 0 && !boost.empty) {
     applyOnHit(atk, def, die, lines, hits, broken, dead, result.amount);
     afterHit(atk, def, die, speedDie.page, lines);
   }
@@ -1650,8 +1664,10 @@ function resolveContested(battle, ally, foe, aDice, bDice, cursor, speedA, speed
   var hits = [];
   if (judged.rawToB > 0) {
     var boostB = boostedRaw(ally, a, speedA.speed, judged.rawToB, foe);
-    var toEnemy = applyDamage(foe, a.type, boostB.raw);
     boostLines(ally, boostB, lines);
+  }
+  if (judged.rawToB > 0 && !boostB.empty) {
+    var toEnemy = applyDamage(foe, a.type, boostB.raw);
     lines.push(hitText(foe, a.type, boostB.raw, toEnemy));
     hits.push({ side: 'enemy', ui: foe.ui, amount: toEnemy.amount, key: toEnemy.key });
     if (toEnemy.broke) queueBreak(broken, foe, ally);
@@ -1661,8 +1677,10 @@ function resolveContested(battle, ally, foe, aDice, bDice, cursor, speedA, speed
   }
   if (judged.rawToA > 0) {
     var boostA = boostedRaw(foe, b, speedB.speed, judged.rawToA, ally);
-    var toPlayer = applyDamage(ally, b.type, boostA.raw);
     boostLines(foe, boostA, lines);
+  }
+  if (judged.rawToA > 0 && !boostA.empty) {
+    var toPlayer = applyDamage(ally, b.type, boostA.raw);
     lines.push(hitText(ally, b.type, boostA.raw, toPlayer));
     hits.push({ side: 'player', ui: ally.ui, amount: toPlayer.amount, key: toPlayer.key });
     if (toPlayer.broke) queueBreak(broken, ally, foe);
@@ -1842,16 +1860,17 @@ function resolveGuardDice(battle, atk, def, atkSpeed, defSpeed, events) {
       });
       continue;
     }
-    markAttacked(def, die);
     var boost = boostedRaw(atk, die, atkSpeed.speed, raw, def);
+    if (boost.empty) raw = 0;
+    else markAttacked(def, die);
     var result = raw > 0 ? applyDamage(def, die.type, boost.raw) : { amount: 0, key: resistNow(def)[die.type], broke: false, died: def.dead };
     var lines = [(i === 0 ? lead : '') + die.shown];
-    if (guardRoll != null) lines.push('、防御 ' + guard.shown + '。ダメージ' + raw + '。');
+    if (guardRoll != null) lines.push('、防御 ' + guard.shown + '。' + (boost.empty ? '' : 'ダメージ' + raw + '。'));
     else lines.push('。受ける防御ダイスがない。');
     boostLines(atk, boost, lines);
     if (raw > 0) lines.push(hitText(def, die.type, boost.raw, result));
-    else if (guard && guard.type === 'evade') noteEvade(def, guard, lines);
-    else lines.push(def.name + 'はダメージを受けない。');
+    else if (!boost.empty && guard && guard.type === 'evade') noteEvade(def, guard, lines);
+    else if (!boost.empty) lines.push(def.name + 'はダメージを受けない。');
     var hits = raw > 0 ? [{ side: def.side, ui: def.ui, amount: result.amount, key: result.key }] : [];
     var broken = [];
     var dead = [];

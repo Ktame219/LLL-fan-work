@@ -1332,16 +1332,29 @@
     return true;
   }
 
-  function leaveToTitle() {
-    document.body.classList.add('locked');
+  function leaveToSetup() {
     var curtain = $('curtain');
-    if (curtain) curtain.style.pointerEvents = 'auto';
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var bannerEl = $('banner');
     if (bannerEl) bannerEl.onclick = null;
+    function reveal() {
+      showSetup();
+      if (reduce || !curtain) return;
+      var stamp = state.intro;
+      curtain.style.pointerEvents = 'auto';
+      curtain.className = 'curtain opening';
+      state.timer = setTimeout(function () {
+        if (state.intro !== stamp) return;
+        resetCurtain();
+      }, 760);
+    }
+    if (reduce || !curtain || state.curtain) { reveal(); return; }
+    curtain.style.pointerEvents = 'auto';
+    curtain.className = 'curtain closing';
     state.timer = setTimeout(function () {
-      try { sessionStorage.setItem('titleCurtain', '1'); } catch (err) {}
-      window.location.href = 'index.html';
-    }, 800);
+      curtain.className = 'curtain shut';
+      reveal();
+    }, 520);
   }
 
   function resetCurtain() {
@@ -1487,11 +1500,11 @@
       render();
       var winner = state.battle.winner;
       if (winner === 'player' && state.curtain) {
-        banner('勝利', '戦闘終了', 'win', leaveToTitle);
+        banner('勝利', '戦闘終了', 'win', leaveToSetup);
         return;
       }
       banner(winner === 'player' ? '勝利' : winner === 'enemy' ? '敗北' : '相打ち', '戦闘終了',
-        winner === 'player' ? 'win' : 'lose');
+        winner === 'player' ? 'win' : 'lose', leaveToSetup);
       return;
     }
     var logs = beginScene(state.battle);
@@ -1636,6 +1649,7 @@
       ['ダメージ量増加', 'status', 'damageUp'],
       ['振動-灼熱', 'status', 'tremorScorch'],
       ['灼熱推進弾', 'status', 'scorchAmmo'],
+      ['弾丸', 'status', 'ammo'],
       ['振動爆発', 'effect', 'tremorBurst'],
       ['破裂爆発', 'effect', 'ruptureBurst'],
       ['振幅変換', 'effect', 'amplitude'],
