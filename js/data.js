@@ -3,7 +3,7 @@ var STATUS_INFO = {
   bind: { name: '束縛', max: 10, text: '[1幕] 速度が束縛の数だけ減少（最大10）' },
   feeble: { name: '虚弱', max: 10, text: '[1幕] 虚弱の数だけ戦術スキル威力減少（最大10）' },
   fragile: { name: '脆弱', max: 10, text: '[1幕] ダイスのダメージを受ける時、脆弱の数だけ受けるHPダメージが増加（最大10）' },
-  staggerFragile: { name: '混乱脆弱', max: 10, text: '[1幕] ダイスのダメージを受ける時、混乱脆弱の数だけ受けるSANダメージが増加（最大10）' },
+  staggerFragile: { name: '混乱脆弱', max: 10, icon: 'confusion_vulnerability.png', text: '[1幕] ダイスのダメージを受ける時、混乱脆弱の数だけ受けるSANダメージが増加（最大10）' },
   power: { name: 'パワー', max: 10, text: '[1幕] パワーの数だけ戦術スキル威力増加（最大10）' },
   protect: { name: '保護', max: 10, text: '[1幕] 保護の数だけスキルで受けるHPダメージが減少（最大10）' },
   burn: {
